@@ -40,6 +40,7 @@
 #include "mongo/db/repl/replication_coordinator.h"
 #include "mongo/db/s/collection_sharding_state.h"
 #include "mongo/util/log.h"
+#include "mongo/util/stacktrace.h"
 
 namespace mongo {
 namespace {
@@ -145,6 +146,13 @@ AutoGetCollectionForRead::AutoGetCollectionForRead(OperationContext* opCtx,
         bool readAtLastAppliedTimestamp =
             _shouldReadAtLastAppliedTimestamp(opCtx, nss, readConcernLevel);
 
+        LOG(0) << "opId: " << opCtx->getOpID()
+               << " readAtLastAppliedTimestamp: " << readAtLastAppliedTimestamp << " nss: " << nss;
+
+        if (nss == NamespaceString("test.system.js")) {
+            printStackTrace();
+        }
+
         if (readAtLastAppliedTimestamp) {
             opCtx->recoveryUnit()->setTimestampReadSource(RecoveryUnit::ReadSource::kLastApplied);
             readSource = opCtx->recoveryUnit()->getTimestampReadSource();
@@ -179,7 +187,8 @@ AutoGetCollectionForRead::AutoGetCollectionForRead(OperationContext* opCtx,
         // waiting for the lastAppliedTimestamp to move forward. Instead we force the reader take
         // the PBWM lock and retry.
         if (lastAppliedTimestamp) {
-            LOG(2) << "Tried reading at last-applied time: " << *lastAppliedTimestamp
+            LOG(0) << "opId: " << opCtx->getOpID()
+                   << " Tried reading at last-applied time: " << *lastAppliedTimestamp
                    << " on ns: " << nss.ns() << ", but future catalog changes are pending at time "
                    << *minSnapshot << ". Trying again without reading at last-applied time.";
             // Destructing the block sets _shouldConflictWithSecondaryBatchApplication back to the
@@ -230,7 +239,7 @@ bool AutoGetCollectionForRead::_shouldReadAtLastAppliedTimestamp(
     repl::ReadConcernLevel readConcernLevel) const {
 
     // If external circumstances prevent us from reading at lastApplied, disallow it.
-    if (!_shouldNotConflictWithSecondaryBatchApplicationBlock) {
+    if (opCtx->lockState()->shouldConflictWithSecondaryBatchApplication()) {
         return false;
     }
 

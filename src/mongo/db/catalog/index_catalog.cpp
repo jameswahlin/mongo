@@ -68,9 +68,11 @@ const IndexCatalogEntry* ReadyIndexesIterator::_advance() {
         ++_iterator;
 
         if (entry->descriptor()->indexName() == "a_1"_sd) {
-            LOG(0) << "JJJ indexName: " << entry->descriptor()->indexName()
+            LOG(0) << "indexName: " << entry->descriptor()->indexName()
                    << " readTimestamp: " << _opCtx->recoveryUnit()->getPointInTimeReadTimestamp()
                    << " minVisibleSnapshot: " << entry->getMinimumVisibleSnapshot()
+                   << " ReadSource: "
+                   << static_cast<int>(_opCtx->recoveryUnit()->getTimestampReadSource())
                    << " opId: " << _opCtx->getOpID();
         }
 

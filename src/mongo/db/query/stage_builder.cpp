@@ -94,7 +94,7 @@ PlanStage* buildStages(OperationContext* opCtx,
             auto descriptor = collection->getIndexCatalog()->findIndexByName(
                 opCtx, ixn->index.identifier.catalogName);
             invariant(descriptor,
-                      str::stream() << "JJJ Namespace: " << collection->ns() << ", CanonicalQuery: "
+                      str::stream() << "Namespace: " << collection->ns() << ", CanonicalQuery: "
                                     << cq.toStringShort()
                                     << ", IndexEntry: "
                                     << ixn->index.toString()

@@ -156,7 +156,7 @@ MONGO_FAIL_POINT_DEFINE(setYieldAllLocksWait);
 void PlanYieldPolicy::_yieldAllLocks(OperationContext* opCtx,
                                      stdx::function<void()> whileYieldingFn,
                                      const NamespaceString& planExecNS) {
-    LOG(0) << "JJJ Before _yieldAllLocks"
+    LOG(0) << "Before _yieldAllLocks"
            << " opId: " << _planYielding->getOpCtx()->getOpID();
     // Things have to happen here in a specific order:
     //   * Release lock mgr locks
