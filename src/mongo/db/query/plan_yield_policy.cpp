@@ -27,6 +27,8 @@
  *    it in the license file.
  */
 
+#define MONGO_LOG_DEFAULT_COMPONENT ::mongo::logger::LogComponent::kQuery
+
 #include "mongo/platform/basic.h"
 
 #include "mongo/db/query/plan_yield_policy.h"
@@ -38,6 +40,7 @@
 #include "mongo/db/query/query_knobs_gen.h"
 #include "mongo/db/service_context.h"
 #include "mongo/util/fail_point_service.h"
+#include "mongo/util/log.h"
 #include "mongo/util/scopeguard.h"
 #include "mongo/util/time_support.h"
 
@@ -153,6 +156,8 @@ MONGO_FAIL_POINT_DEFINE(setYieldAllLocksWait);
 void PlanYieldPolicy::_yieldAllLocks(OperationContext* opCtx,
                                      stdx::function<void()> whileYieldingFn,
                                      const NamespaceString& planExecNS) {
+    LOG(0) << "JJJ Before _yieldAllLocks"
+           << " opId: " << _planYielding->getOpCtx()->getOpID();
     // Things have to happen here in a specific order:
     //   * Release lock mgr locks
     //   * Check for interrupt (kill flag is set)

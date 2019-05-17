@@ -231,6 +231,8 @@ void fillOutPlannerParams(OperationContext* opCtx,
                           Collection* collection,
                           CanonicalQuery* canonicalQuery,
                           QueryPlannerParams* plannerParams) {
+    LOG(0) << "JJJ fillOutPlannerParams"
+           << " opId: " << opCtx->getOpID();
     invariant(canonicalQuery);
     // If it's not NULL, we may have indices.  Access the catalog and fill out IndexEntry(s)
     std::unique_ptr<IndexCatalog::IndexIterator> ii =
@@ -734,6 +736,12 @@ StatusWith<unique_ptr<PlanExecutor, PlanExecutor::Deleter>> _getExecutorFind(
     unique_ptr<CanonicalQuery> canonicalQuery,
     PlanExecutor::YieldPolicy yieldPolicy,
     size_t plannerOptions) {
+    LOG(0) << "JJJ Before _getExecutorFind"
+           << " opId: " << opCtx->getOpID();
+    ON_BLOCK_EXIT([&] {
+        LOG(0) << "JJJ After _getExecutorFind"
+               << " opId: " << opCtx->getOpID();
+    });
     if (NULL != collection && canonicalQuery->getQueryRequest().isOplogReplay()) {
         return getOplogStartHack(opCtx, collection, std::move(canonicalQuery), plannerOptions);
     }

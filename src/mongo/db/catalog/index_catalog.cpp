@@ -33,6 +33,7 @@
 
 #include "mongo/db/catalog/index_catalog.h"
 #include "mongo/db/index/index_descriptor.h"
+#include "mongo/util/log.h"
 
 
 namespace mongo {
@@ -65,6 +66,13 @@ const IndexCatalogEntry* ReadyIndexesIterator::_advance() {
     while (_iterator != _endIterator) {
         IndexCatalogEntry* entry = _iterator->get();
         ++_iterator;
+
+        if (entry->descriptor()->indexName() == "a_1"_sd) {
+            LOG(0) << "JJJ indexName: " << entry->descriptor()->indexName()
+                   << " readTimestamp: " << _opCtx->recoveryUnit()->getPointInTimeReadTimestamp()
+                   << " minVisibleSnapshot: " << entry->getMinimumVisibleSnapshot()
+                   << " opId: " << _opCtx->getOpID();
+        }
 
         if (auto minSnapshot = entry->getMinimumVisibleSnapshot()) {
             if (auto mySnapshot = _opCtx->recoveryUnit()->getPointInTimeReadTimestamp()) {

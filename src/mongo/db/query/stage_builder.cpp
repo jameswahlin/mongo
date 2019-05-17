@@ -94,10 +94,12 @@ PlanStage* buildStages(OperationContext* opCtx,
             auto descriptor = collection->getIndexCatalog()->findIndexByName(
                 opCtx, ixn->index.identifier.catalogName);
             invariant(descriptor,
-                      str::stream() << "Namespace: " << collection->ns() << ", CanonicalQuery: "
+                      str::stream() << "JJJ Namespace: " << collection->ns() << ", CanonicalQuery: "
                                     << cq.toStringShort()
                                     << ", IndexEntry: "
-                                    << ixn->index.toString());
+                                    << ixn->index.toString()
+                                    << " opId: "
+                                    << opCtx->getOpID());
 
             // We use the node's internal name, keyPattern and multikey details here. For $**
             // indexes, these may differ from the information recorded in the index's descriptor.
