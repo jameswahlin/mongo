@@ -1223,7 +1223,7 @@ std::unique_ptr<QuerySolutionNode> QueryPlannerAccess::_buildIndexedDataAccess(
                 auto fetch = std::make_unique<FetchNode>();
                 fetch->filter = std::move(ownedRoot);
                 fetch->children.push_back(soln.release());
-                std::cout << "Add fetch node" << std::endl;
+                std::cout << "JHW Add fetch node" << std::endl;
                 return std::move(fetch);
             }
         } else if (Indexability::arrayUsesIndexOnChildren(root)) {

@@ -25,4 +25,3 @@ var result =
             {$project: {"obj.obj.obj.obj.str": 1, "_id": 0}}
         ])
         .toArray();
-jsTest.log(result);
