@@ -375,6 +375,7 @@ StatusWith<PrepareExecutionResult> prepareExecution(OperationContext* opCtx,
         LOG(2) << "Collection " << ns << " does not exist."
                << " Using EOF plan: " << redact(canonicalQuery->toStringShort());
         root = std::make_unique<EOFStage>(opCtx);
+        std::cout << "JJJ CCC" << std::endl;
         return PrepareExecutionResult(std::move(canonicalQuery), nullptr, std::move(root));
     }
 
@@ -440,6 +441,7 @@ StatusWith<PrepareExecutionResult> prepareExecution(OperationContext* opCtx,
             }
         }
 
+        std::cout << "JJJ DDD" << std::endl;
         return PrepareExecutionResult(std::move(canonicalQuery), nullptr, std::move(root));
     }
 
@@ -490,6 +492,7 @@ StatusWith<PrepareExecutionResult> prepareExecution(OperationContext* opCtx,
                                                          plannerParams,
                                                          cs->decisionWorks,
                                                          rawRoot);
+                std::cout << "JJJ EEE" << std::endl;
                 return PrepareExecutionResult(
                     std::move(canonicalQuery), std::move(querySolution), std::move(root));
             }
@@ -502,11 +505,15 @@ StatusWith<PrepareExecutionResult> prepareExecution(OperationContext* opCtx,
 
         root = std::make_unique<SubplanStage>(
             opCtx, collection, ws, plannerParams, canonicalQuery.get());
+        std::cout << "JJJ FFF" << std::endl;
         return PrepareExecutionResult(std::move(canonicalQuery), nullptr, std::move(root));
     }
 
+    std::cout << "JJJCQ " << canonicalQuery->toString() << std::endl;
+
     auto statusWithSolutions = QueryPlanner::plan(*canonicalQuery, plannerParams);
     if (!statusWithSolutions.isOK()) {
+        std::cout << "JJJ GGG" << std::endl;
         return statusWithSolutions.getStatus().withContext(
             str::stream() << "error processing query: " << canonicalQuery->toString()
                           << " planner returned error");
@@ -516,6 +523,7 @@ StatusWith<PrepareExecutionResult> prepareExecution(OperationContext* opCtx,
     // We cannot figure out how to answer the query.  Perhaps it requires an index
     // we do not have?
     if (0 == solutions.size()) {
+        std::cout << "JJJ HHH" << std::endl;
         return Status(ErrorCodes::BadValue,
                       str::stream() << "error processing query: " << canonicalQuery->toString()
                                     << " No query solutions");
@@ -534,6 +542,7 @@ StatusWith<PrepareExecutionResult> prepareExecution(OperationContext* opCtx,
                 LOG(2) << "Using fast count: " << redact(canonicalQuery->toStringShort())
                        << ", planSummary: " << Explain::getPlanSummary(root.get());
 
+                std::cout << "JJJ III" << std::endl;
                 return PrepareExecutionResult(
                     std::move(canonicalQuery), std::move(solutions[i]), std::move(root));
             }
@@ -551,6 +560,7 @@ StatusWith<PrepareExecutionResult> prepareExecution(OperationContext* opCtx,
                << redact(canonicalQuery->toStringShort())
                << ", planSummary: " << Explain::getPlanSummary(root.get());
 
+        std::cout << "JJJ JJJ" << std::endl;
         return PrepareExecutionResult(
             std::move(canonicalQuery), std::move(solutions[0]), std::move(root));
     } else {
@@ -574,6 +584,7 @@ StatusWith<PrepareExecutionResult> prepareExecution(OperationContext* opCtx,
         }
 
         root = std::move(multiPlanStage);
+        std::cout << "JJJ KKK" << std::endl;
         return PrepareExecutionResult(std::move(canonicalQuery), nullptr, std::move(root));
     }
 }
@@ -590,6 +601,7 @@ StatusWith<unique_ptr<PlanExecutor, PlanExecutor::Deleter>> getExecutor(
     StatusWith<PrepareExecutionResult> executionResult =
         prepareExecution(opCtx, collection, ws.get(), std::move(canonicalQuery), plannerOptions);
     if (!executionResult.isOK()) {
+        std::cout << "JJJ getExecutor not OK" << std::endl;
         return executionResult.getStatus();
     }
     invariant(executionResult.getValue().root);

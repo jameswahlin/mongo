@@ -108,6 +108,8 @@ bool canOptimizeAwayPipeline(const Pipeline* pipeline,
                              const AggregationRequest& request,
                              bool hasGeoNearStage,
                              bool hasChangeStreamStage) {
+    std::cout << "JJJ pipeline->getSources().empty(): "
+              << static_cast<bool>(pipeline->getSources().empty()) << std::endl;
     return pipeline && exec && !hasGeoNearStage && !hasChangeStreamStage &&
         pipeline->getSources().empty() &&
         // For exchange we will create a number of pipelines consisting of a single
@@ -660,11 +662,14 @@ Status runAggregate(OperationContext* opCtx,
                 PipelineD::buildInnerQueryExecutor(collection, nss, &request, pipeline.get());
         }
 
-        if (canOptimizeAwayPipeline(pipeline.get(),
-                                    attachExecutorCallback.second.get(),
-                                    request,
-                                    hasGeoNearStage,
-                                    liteParsedPipeline.hasChangeStream())) {
+        auto canOptimizeAway = canOptimizeAwayPipeline(pipeline.get(),
+                                                       attachExecutorCallback.second.get(),
+                                                       request,
+                                                       hasGeoNearStage,
+                                                       liteParsedPipeline.hasChangeStream());
+        std::cout << "JJJ canOptimizeAway: " << canOptimizeAway << std::endl;
+
+        if (canOptimizeAway) {
             // This pipeline is currently empty, but once completed it will have only one source,
             // which is a DocumentSourceCursor. Instead of creating a whole pipeline to do nothing
             // more than forward the results of its cursor document source, we can use the

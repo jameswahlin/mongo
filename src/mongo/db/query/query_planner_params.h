@@ -118,6 +118,16 @@ struct QueryPlannerParams {
     // plans via the MultiPlanStage, and the set of possible plans is very large for certain
     // index+query combinations.
     size_t maxIndexedSolutions;
+
+    void print() const {
+        std::cout << "JJJQPP options: " << options << std::endl;
+        std::cout << "JJJQPP shardKey: " << shardKey << std::endl;
+        std::cout << "JJJQPP indexFiltersApplied: " << indexFiltersApplied << std::endl;
+        std::cout << "JJJQPP maxIndexedSolutions: " << maxIndexedSolutions << std::endl;
+        for (auto&& index : indices) {
+            std::cout << "JJJQPP indexEntry: " << index.toString() << std::endl;
+        }
+    }
 };
 
 }  // namespace mongo
