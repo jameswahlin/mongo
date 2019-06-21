@@ -815,12 +815,11 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
                 continue;
             }
 
-
+            std::cout << "JHW planner: " << solnRoot->fetched() << std::endl;
             auto soln = QueryPlannerAnalysis::analyzeDataAccess(query, params, std::move(solnRoot));
             if (soln) {
-                // std::cout << "JHW soln" << std::endl;
-                // std::cout << "JHW Planner: adding solution:" << redact(soln->toString())
-                //           << std::endl;
+                // std::cout << "JHW cq: " << query.toStringShort() << std::endl;
+                // params.print();
                 if (statusWithCacheData.isOK()) {
                     SolutionCacheData* scd = new SolutionCacheData();
                     scd->tree = std::move(cacheData);

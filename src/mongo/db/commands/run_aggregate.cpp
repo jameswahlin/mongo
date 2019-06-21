@@ -108,8 +108,6 @@ bool canOptimizeAwayPipeline(const Pipeline* pipeline,
                              const AggregationRequest& request,
                              bool hasGeoNearStage,
                              bool hasChangeStreamStage) {
-    std::cout << "JJJ pipeline->getSources().empty(): "
-              << static_cast<bool>(pipeline->getSources().empty()) << std::endl;
     return pipeline && exec && !hasGeoNearStage && !hasChangeStreamStage &&
         pipeline->getSources().empty() &&
         // For exchange we will create a number of pipelines consisting of a single

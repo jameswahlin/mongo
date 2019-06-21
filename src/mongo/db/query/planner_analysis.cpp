@@ -734,8 +734,7 @@ std::unique_ptr<QuerySolution> QueryPlannerAnalysis::analyzeDataAccess(
     const QueryPlannerParams& params,
     std::unique_ptr<QuerySolutionNode> solnRoot) {
 
-    std::cout << "JHW cq: " << query.toString() << std::endl;
-    params.print();
+    // std::cout << "JHW analyzeDataAccess: " << solnRoot->fetched() << std::endl;
 
     auto soln = std::make_unique<QuerySolution>();
     soln->filterData = query.getQueryObj();
@@ -782,6 +781,7 @@ std::unique_ptr<QuerySolution> QueryPlannerAnalysis::analyzeDataAccess(
 
     // This can happen if we need to create a blocking sort stage and we're not allowed to.
     if (!solnRoot) {
+        // std::cout << "JHW !solnRoot" << std::endl;
         return nullptr;
     }
 
@@ -801,11 +801,20 @@ std::unique_ptr<QuerySolution> QueryPlannerAnalysis::analyzeDataAccess(
 
     // Project the results.
     if (query.getProj()) {
+        bool fetchedBefore = solnRoot->fetched();
         solnRoot = analyzeProjection(query, std::move(solnRoot), hasSortStage);
+        if (solnRoot->fetched() != fetchedBefore) {
+            // std::cout << "JHW fetchedChanged" << std::endl;
+        }
         // If we don't have a covered project, and we're not allowed to put an uncovered one in,
         // bail out.
-        if (solnRoot->fetched() && params.options & QueryPlannerParams::NO_UNCOVERED_PROJECTIONS)
+        std::cout << "JHW solnRoot->fetched(): " << solnRoot->fetched() << std::endl;
+        // std::cout << "JHW params.options: " << params.options << std::endl;
+
+        if (solnRoot->fetched() && params.options & QueryPlannerParams::NO_UNCOVERED_PROJECTIONS) {
+            std::cout << "JHW nullptr" << std::endl;
             return nullptr;
+        }
     } else {
         // If there's no projection, we must fetch, as the user wants the entire doc.
         if (!solnRoot->fetched() && !(params.options & QueryPlannerParams::IS_COUNT)) {
@@ -838,6 +847,7 @@ std::unique_ptr<QuerySolution> QueryPlannerAnalysis::analyzeDataAccess(
     }
 
     soln->root = std::move(solnRoot);
+    std::cout << "JHW before return" << std::endl;
     return soln;
 }
 

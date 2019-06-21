@@ -211,7 +211,6 @@ StatusWith<std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>> attemptToGetExe
         // combination it will be ok. e.g. a sort by {$meta: 'textScore'}, without any projection
         // will fail, but will succeed when the corresponding '$meta' projection is passed in
         // another attempt.
-        std::cout << "JJJ AAA" << std::endl;
         return {cq.getStatus()};
     }
 
@@ -246,7 +245,6 @@ StatusWith<std::unique_ptr<PlanExecutor, PlanExecutor::Deleter>> attemptToGetExe
     }
 
     bool permitYield = true;
-    std::cout << "JJJ BBB" << std::endl;
     return getExecutorFind(opCtx, collection, std::move(cq.getValue()), permitYield, plannerOpts);
 }
 

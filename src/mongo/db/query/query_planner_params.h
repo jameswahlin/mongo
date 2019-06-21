@@ -119,15 +119,15 @@ struct QueryPlannerParams {
     // index+query combinations.
     size_t maxIndexedSolutions;
 
-    void print() const {
-        std::cout << "JHWQPP options: " << options << std::endl;
-        std::cout << "JHWQPP shardKey: " << shardKey << std::endl;
-        std::cout << "JHWQPP indexFiltersApplied: " << indexFiltersApplied << std::endl;
-        std::cout << "JHWQPP maxIndexedSolutions: " << maxIndexedSolutions << std::endl;
-        for (auto&& index : indices) {
-            std::cout << "JHWQPP indexEntry: " << index.toString() << std::endl;
-        }
-    }
+    // void print() const {
+    //     std::cout << "JHWQPP options: " << options << std::endl;
+    //     std::cout << "JHWQPP shardKey: " << shardKey << std::endl;
+    //     std::cout << "JHWQPP indexFiltersApplied: " << indexFiltersApplied << std::endl;
+    //     std::cout << "JHWQPP maxIndexedSolutions: " << maxIndexedSolutions << std::endl;
+    //     for (auto&& index : indices) {
+    //         std::cout << "JHWQPP indexEntry: " << index.toString() << std::endl;
+    //     }
+    // }
 };
 
 }  // namespace mongo

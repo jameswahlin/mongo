@@ -509,8 +509,8 @@ StatusWith<PrepareExecutionResult> prepareExecution(OperationContext* opCtx,
         return PrepareExecutionResult(std::move(canonicalQuery), nullptr, std::move(root));
     }
 
-    std::cout << "JJJCQ " << canonicalQuery->toString() << std::endl;
-    plannerParams.print();
+    // std::cout << "JJJCQ " << canonicalQuery->toString() << std::endl;
+    // plannerParams.print();
 
     auto statusWithSolutions = QueryPlanner::plan(*canonicalQuery, plannerParams);
     if (!statusWithSolutions.isOK()) {
