@@ -351,13 +351,15 @@ std::unique_ptr<ProjectionNode> analyzeProjection(const CanonicalQuery& query,
         }
     };
 
-    LOG(5) << "PROJECTION: Current plan is:\n" << redact(solnRoot->toString());
+    LOG(0) << "JJJ PROJECTION: Current plan is:\n" << redact(solnRoot->toString());
+    LOG(0) << "JJJ query.getProj()->wantIndexKey(): " << query.getProj()->wantIndexKey();
 
     // If the projection requires the entire document we add a fetch stage if not present. Otherwise
     // we add a fetch stage if we are not covered and not returnKey.
     if ((query.getProj()->requiresDocument() && !solnRoot->fetched()) ||
         (!isCoveredOrAlreadyFetched(query.getProj()->getRequiredFields(), *solnRoot) &&
          !query.getProj()->wantIndexKey())) {
+        std::cout << "JJJ Add fetch!!" << std::endl;
         auto fetch = std::make_unique<FetchNode>();
         fetch->children.push_back(solnRoot.release());
         solnRoot = std::move(fetch);
