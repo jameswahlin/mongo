@@ -771,6 +771,8 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
         LOG(5) << "Rated tree after text processing:" << redact(query.root()->debugString());
     }
 
+    LOG(0) << "JJJ relevantIndices.size(): " << relevantIndices.size();
+
     // If we have any relevant indices, we try to create indexed plans.
     if (0 < relevantIndices.size()) {
         // The enumerator spits out trees tagged with IndexTag(s).
@@ -828,7 +830,7 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
     // Don't leave tags on query tree.
     query.root()->resetTag();
 
-    LOG(5) << "Planner: outputted " << out.size() << " indexed solutions.";
+    LOG(5) << "JJJ Planner: outputted " << out.size() << " indexed solutions.";
 
     // Produce legible error message for failed OR planning with a TEXT child.
     // TODO: support collection scan for non-TEXT children of OR.

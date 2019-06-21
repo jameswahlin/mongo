@@ -496,6 +496,9 @@ StatusWith<PrepareExecutionResult> prepareExecution(OperationContext* opCtx,
         }
     }
 
+    // std::cout << "JJJ SubplanStage::canUseSubplanning(*canonicalQuery): "
+    //           << SubplanStage::canUseSubplanning(*canonicalQuery) << std::endl;
+
     if (internalQueryPlanOrChildrenIndependently.load() &&
         SubplanStage::canUseSubplanning(*canonicalQuery)) {
         LOG(2) << "Running query as sub-queries: " << redact(canonicalQuery->toStringShort());
