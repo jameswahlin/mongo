@@ -830,7 +830,7 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
     // Don't leave tags on query tree.
     query.root()->resetTag();
 
-    LOG(5) << "JJJ Planner: outputted " << out.size() << " indexed solutions.";
+    LOG(0) << "JJJ Planner: outputted " << out.size() << " indexed solutions.";
 
     // Produce legible error message for failed OR planning with a TEXT child.
     // TODO: support collection scan for non-TEXT children of OR.
