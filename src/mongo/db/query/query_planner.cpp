@@ -583,7 +583,7 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
             return {std::move(out)};
         }
     }
-
+    std::cout << "JHW A" << std::endl;
     // Hints require us to only consider the hinted index. If index filters in the query settings
     // were used to override the allowed indices for planning, we should not use the hinted index
     // requested in the query.
@@ -695,9 +695,6 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
         return {std::move(out)};
     }
 
-    for (size_t i = 0; i < relevantIndices.size(); ++i) {
-        LOG(2) << "Relevant index " << i << " is " << relevantIndices[i].toString();
-    }
 
     // Figure out how useful each index is to each predicate.
     QueryPlannerIXSelect::rateIndices(query.root(), "", relevantIndices, query.getCollator());
@@ -715,6 +712,11 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
         !QueryPlannerCommon::hasNode(query.root(), MatchExpression::GEO_NEAR) &&
         !QueryPlannerCommon::hasNode(query.root(), MatchExpression::TEXT)) {
         QueryPlannerIXSelect::stripUnneededAssignments(query.root(), relevantIndices);
+    }
+
+    for (size_t i = 0; i < relevantIndices.size(); ++i) {
+        // std::cout << "JHW Relevant index " << i << " is " << relevantIndices[i].toString()
+        //           << std::endl;
     }
 
     // query.root() is now annotated with RelevantTag(s).
@@ -771,6 +773,7 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
         LOG(5) << "Rated tree after text processing:" << redact(query.root()->debugString());
     }
 
+
     // If we have any relevant indices, we try to create indexed plans.
     if (0 < relevantIndices.size()) {
         // The enumerator spits out trees tagged with IndexTag(s).
@@ -812,9 +815,12 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
                 continue;
             }
 
+
             auto soln = QueryPlannerAnalysis::analyzeDataAccess(query, params, std::move(solnRoot));
             if (soln) {
-                LOG(5) << "Planner: adding solution:" << endl << redact(soln->toString());
+                // std::cout << "JHW soln" << std::endl;
+                // std::cout << "JHW Planner: adding solution:" << redact(soln->toString())
+                //           << std::endl;
                 if (statusWithCacheData.isOK()) {
                     SolutionCacheData* scd = new SolutionCacheData();
                     scd->tree = std::move(cacheData);
@@ -828,7 +834,7 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
     // Don't leave tags on query tree.
     query.root()->resetTag();
 
-    LOG(0) << "JJJ Planner: outputted " << out.size() << " indexed solutions.";
+    LOG(0) << "JJJ JHW Planner: outputted " << out.size() << " indexed solutions.";
 
     // Produce legible error message for failed OR planning with a TEXT child.
     // TODO: support collection scan for non-TEXT children of OR.

@@ -120,12 +120,12 @@ struct QueryPlannerParams {
     size_t maxIndexedSolutions;
 
     void print() const {
-        std::cout << "JJJQPP options: " << options << std::endl;
-        std::cout << "JJJQPP shardKey: " << shardKey << std::endl;
-        std::cout << "JJJQPP indexFiltersApplied: " << indexFiltersApplied << std::endl;
-        std::cout << "JJJQPP maxIndexedSolutions: " << maxIndexedSolutions << std::endl;
+        std::cout << "JHWQPP options: " << options << std::endl;
+        std::cout << "JHWQPP shardKey: " << shardKey << std::endl;
+        std::cout << "JHWQPP indexFiltersApplied: " << indexFiltersApplied << std::endl;
+        std::cout << "JHWQPP maxIndexedSolutions: " << maxIndexedSolutions << std::endl;
         for (auto&& index : indices) {
-            std::cout << "JJJQPP indexEntry: " << index.toString() << std::endl;
+            std::cout << "JHWQPP indexEntry: " << index.toString() << std::endl;
         }
     }
 };
