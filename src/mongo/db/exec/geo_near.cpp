@@ -515,6 +515,10 @@ public:
         out->append("TwoDPtInAnnulusExpression", true);
     }
 
+    BSONObj getSerializedRightHandSide() const final {
+        MONGO_UNREACHABLE;
+    }
+
     bool matchesSingleElement(const BSONElement& e, MatchDetails* details = nullptr) const final {
         if (!e.isABSONObj())
             return false;

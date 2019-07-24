@@ -67,6 +67,10 @@ public:
 
     void debugString(StringBuilder& debug, int level = 0) const final;
 
+    BSONObj getSerializedRightHandSide() const final {
+        MONGO_UNREACHABLE;
+    }
+
     void serialize(BSONObjBuilder* out) const final;
 
     bool equivalent(const MatchExpression* other) const final;

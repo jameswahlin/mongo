@@ -125,6 +125,12 @@ public:
         }
     }
 
+    void serialize(BSONObjBuilder* out) const override {
+        out->append(path(), getSerializedRightHandSide());
+    }
+
+    virtual BSONObj getSerializedRightHandSide() const = 0;
+
 protected:
     void _doAddDependencies(DepsTracker* deps) const final {
         if (!_path.empty()) {

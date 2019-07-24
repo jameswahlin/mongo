@@ -664,11 +664,15 @@ TEST(PipelineOptimizationTest, MatchShouldSplitOnUnwind) {
         "{$match: {$and: [{f: {$eq: 5}}, "
         "                 {$nor: [{'a.d': 1, c: 5}, {'a.b': 3, c: 5}]}]}}]";
     string outputPipe =
-        "[{$match: {$and: [{f: {$eq: 5}},"
-        "                  {$nor: [{$and: [{'a.d': {$eq: 1}}, {c: {$eq: 5}}]}]}]}},"
-        "{$unwind: {path: '$a.b'}}, "
-        "{$match: {$nor: [{$and: [{'a.b': {$eq: 3}}, {c: {$eq: 5}}]}]}}]";
-    assertPipelineOptimizesTo(inputPipe, outputPipe);
+        "[{$match: {$and: [{f: {$eq: 5}}, "
+        " {'a.d': {$not: {$eq: 1, $eq: 5}}}]}}, {$unwind: {path: '$a.b'}}, "
+        " {$match: {'a.b': {$not: {$eq: 3, $eq: 5}}}}]";
+
+    string serializedPipe =
+        "[{$match: {$and: [{f: {$eq: 5}}, {$nor: [{$and: [{'a.d': {$eq: 1}}, {c: {$eq: 5}}]}]}]}}, "
+        "{$unwind: {path: '$a.b'}}, {$match: {$nor: [{$and: [{'a.b': {$eq: 3}}, {c: {$eq: "
+        "5}}]}]}}]";
+    assertPipelineOptimizesAndSerializesTo(inputPipe, outputPipe, serializedPipe);
 }
 
 TEST(PipelineOptimizationTest, MatchShouldNotOptimizeWithElemMatch) {
@@ -699,10 +703,13 @@ TEST(PipelineOptimizationTest, MatchWithNorOnlySplitsIndependentChildren) {
         "[{$unwind: {path: '$a'}}, "
         "{$match: {$nor: [{$and: [{a: {$eq: 1}}, {b: {$eq: 1}}]}, {b: {$eq: 2}} ]}}]";
     string outputPipe =
-        "[{$match: {$nor: [{b: {$eq: 2}}]}}, "
-        "{$unwind: {path: '$a'}}, "
-        "{$match: {$nor: [{$and: [{a: {$eq: 1}}, {b: {$eq: 1}}]}]}}]";
-    assertPipelineOptimizesTo(inputPipe, outputPipe);
+        "[{$match: {b: {$not: {$eq: 2}}}}, {$unwind: {path: '$a'}}, {$match: {a: {$not: {$eq: 1, "
+        "$eq: 1}}}}]";
+    string serializedPipe = R"(
+        [{$match: {$nor: [{b: {$eq: 2}}]}},
+         {$unwind: {path: '$a'}},
+         {$match: {$nor: [{$and: [{a: {$eq: 1}}, {b: {$eq: 1}}]}]}}])";
+    assertPipelineOptimizesAndSerializesTo(inputPipe, outputPipe, serializedPipe);
 }
 
 TEST(PipelineOptimizationTest, MatchWithOrDoesNotSplit) {
@@ -960,10 +967,15 @@ TEST(PipelineOptimizationTest, NorCanSplitAcrossProjectWithRename) {
         "[{$project: {_id: false, x: true, y: '$z'}},"
         "{$match: {$nor: [{w: {$eq: 1}}, {y: {$eq: 1}}]}}]";
     string outputPipe =
-        "[{$match: {$nor: [{z: {$eq: 1}}]}},"
-        "{$project: {_id: false, x: true, y: '$z'}},"
-        "{$match: {$nor: [{w: {$eq: 1}}]}}]";
-    assertPipelineOptimizesTo(inputPipe, outputPipe);
+        R"([{$match: {z : {$not: {$eq: 1}}}},
+             {$project: {_id: false, x: true, y: "$z"}},
+             {$match: {w: {$not: {$eq: 1}}}}])";
+    string serializedPipe = R"(
+        [{$match: {$nor: [ {z : {$eq: 1}}]}},
+         {$project: {_id: false, x: true, y: "$z"}},
+         {$match: {$nor: [ {w: {$eq: 1}}]}}]
+        )";
+    assertPipelineOptimizesAndSerializesTo(inputPipe, outputPipe, serializedPipe);
 }
 
 TEST(PipelineOptimizationTest, MatchCanMoveAcrossSeveralRenames) {

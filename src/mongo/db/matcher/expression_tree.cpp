@@ -36,6 +36,7 @@
 #include "mongo/bson/bsonobj.h"
 #include "mongo/bson/bsonobjbuilder.h"
 #include "mongo/db/matcher/expression_always_boolean.h"
+#include "mongo/db/matcher/expression_path.h"
 
 namespace mongo {
 
@@ -268,17 +269,59 @@ void NotMatchExpression::debugString(StringBuilder& debug, int level) const {
     _exp->debugString(debug, level + 1);
 }
 
-void NotMatchExpression::serialize(BSONObjBuilder* out) const {
+namespace {
+bool representsNotWithPathMatchExpression(MatchExpression* exp) {
+    return (dynamic_cast<PathMatchExpression*>(exp) ||
+            (exp->matchType() == MatchExpression::MatchType::AND && exp->numChildren() > 0 &&
+             dynamic_cast<PathMatchExpression*>(exp->getChild(0))));
+}
+
+void serializeNotExpressionToNor(MatchExpression* exp, BSONObjBuilder* out) {
     BSONObjBuilder childBob;
-    _exp->serialize(&childBob);
+    exp->serialize(&childBob);
 
     BSONObj tempObj = childBob.obj();
 
-    // We don't know what the inner object is, and thus whether serializing to $not will result in a
-    // parseable MatchExpression. As a fix, we change it to $nor, which is always parseable.
     BSONArrayBuilder tBob(out->subarrayStart("$nor"));
     tBob.append(tempObj);
     tBob.doneFast();
+}
+
+StringData getPathForNotWithPathMatchExpression(MatchExpression* exp) {
+    PathMatchExpression* pathMatchExpression = dynamic_cast<PathMatchExpression*>(exp);
+    if (!pathMatchExpression) {
+        pathMatchExpression = dynamic_cast<PathMatchExpression*>(exp->getChild(0));
+    }
+    invariant(pathMatchExpression);
+
+    return pathMatchExpression->path();
+}
+}
+
+void NotMatchExpression::serialize(BSONObjBuilder* out) const {
+    // When a $not contains an expression that is not a PathMatchExpression, we transform to a $nor.
+    // We cannot do this when a PathMatchExpression is contained, as it is possible that the $not
+    // is contained by an ElemMatchValueMatchExpression, in which a $nor would not be valid.
+    if (!representsNotWithPathMatchExpression(_exp.get())) {
+        return serializeNotExpressionToNor(_exp.get(), out);
+    }
+
+    BSONObjBuilder pathBob(out->subobjStart(getPathForNotWithPathMatchExpression(_exp.get())));
+
+    if (_exp->matchType() == MatchType::AND) {
+        BSONObjBuilder notBob(pathBob.subobjStart("$not"));
+        for (size_t x = 0; x < _exp->numChildren(); ++x) {
+            auto* pathMatchExpression = dynamic_cast<PathMatchExpression*>(_exp->getChild(x));
+            invariant(pathMatchExpression);
+            notBob.appendElements(pathMatchExpression->getSerializedRightHandSide());
+        }
+        notBob.doneFast();
+    } else {
+        auto* pathMatchExpression = dynamic_cast<PathMatchExpression*>(_exp.get());
+        invariant(pathMatchExpression);
+        pathBob.append("$not", pathMatchExpression->getSerializedRightHandSide());
+    }
+    pathBob.doneFast();
 }
 
 bool NotMatchExpression::equivalent(const MatchExpression* other) const {
