@@ -117,7 +117,8 @@ PlanStage* buildStages(OperationContext* opCtx,
         }
         case STAGE_FETCH: {
             const FetchNode* fn = static_cast<const FetchNode*>(root);
-            PlanStage* childStage = buildStages(opCtx, collection, cq, qsol, fn->children[0], ws);
+            PlanStage* childStage =
+                buildStages(opCtx, collection, cq, qsol, fn->children[0].get(), ws);
             if (nullptr == childStage) {
                 return nullptr;
             }
@@ -125,7 +126,8 @@ PlanStage* buildStages(OperationContext* opCtx,
         }
         case STAGE_SORT: {
             const SortNode* sn = static_cast<const SortNode*>(root);
-            PlanStage* childStage = buildStages(opCtx, collection, cq, qsol, sn->children[0], ws);
+            PlanStage* childStage =
+                buildStages(opCtx, collection, cq, qsol, sn->children[0].get(), ws);
             if (nullptr == childStage) {
                 return nullptr;
             }
@@ -138,7 +140,7 @@ PlanStage* buildStages(OperationContext* opCtx,
         case STAGE_SORT_KEY_GENERATOR: {
             const SortKeyGeneratorNode* keyGenNode = static_cast<const SortKeyGeneratorNode*>(root);
             PlanStage* childStage =
-                buildStages(opCtx, collection, cq, qsol, keyGenNode->children[0], ws);
+                buildStages(opCtx, collection, cq, qsol, keyGenNode->children[0].get(), ws);
             if (nullptr == childStage) {
                 return nullptr;
             }
@@ -147,7 +149,7 @@ PlanStage* buildStages(OperationContext* opCtx,
         case STAGE_PROJECTION_DEFAULT: {
             auto pn = static_cast<const ProjectionNodeDefault*>(root);
             unique_ptr<PlanStage> childStage{
-                buildStages(opCtx, collection, cq, qsol, pn->children[0], ws)};
+                buildStages(opCtx, collection, cq, qsol, pn->children[0].get(), ws)};
             if (nullptr == childStage) {
                 return nullptr;
             }
@@ -161,7 +163,7 @@ PlanStage* buildStages(OperationContext* opCtx,
         case STAGE_PROJECTION_COVERED: {
             auto pn = static_cast<const ProjectionNodeCovered*>(root);
             unique_ptr<PlanStage> childStage{
-                buildStages(opCtx, collection, cq, qsol, pn->children[0], ws)};
+                buildStages(opCtx, collection, cq, qsol, pn->children[0].get(), ws)};
             if (nullptr == childStage) {
                 return nullptr;
             }
@@ -171,7 +173,7 @@ PlanStage* buildStages(OperationContext* opCtx,
         case STAGE_PROJECTION_SIMPLE: {
             auto pn = static_cast<const ProjectionNodeSimple*>(root);
             unique_ptr<PlanStage> childStage{
-                buildStages(opCtx, collection, cq, qsol, pn->children[0], ws)};
+                buildStages(opCtx, collection, cq, qsol, pn->children[0].get(), ws)};
             if (nullptr == childStage) {
                 return nullptr;
             }
@@ -179,7 +181,8 @@ PlanStage* buildStages(OperationContext* opCtx,
         }
         case STAGE_LIMIT: {
             const LimitNode* ln = static_cast<const LimitNode*>(root);
-            PlanStage* childStage = buildStages(opCtx, collection, cq, qsol, ln->children[0], ws);
+            PlanStage* childStage =
+                buildStages(opCtx, collection, cq, qsol, ln->children[0].get(), ws);
             if (nullptr == childStage) {
                 return nullptr;
             }
@@ -187,7 +190,8 @@ PlanStage* buildStages(OperationContext* opCtx,
         }
         case STAGE_SKIP: {
             const SkipNode* sn = static_cast<const SkipNode*>(root);
-            PlanStage* childStage = buildStages(opCtx, collection, cq, qsol, sn->children[0], ws);
+            PlanStage* childStage =
+                buildStages(opCtx, collection, cq, qsol, sn->children[0].get(), ws);
             if (nullptr == childStage) {
                 return nullptr;
             }
@@ -198,7 +202,7 @@ PlanStage* buildStages(OperationContext* opCtx,
             auto ret = std::make_unique<AndHashStage>(opCtx, ws);
             for (size_t i = 0; i < ahn->children.size(); ++i) {
                 PlanStage* childStage =
-                    buildStages(opCtx, collection, cq, qsol, ahn->children[i], ws);
+                    buildStages(opCtx, collection, cq, qsol, ahn->children[i].get(), ws);
                 if (nullptr == childStage) {
                     return nullptr;
                 }
@@ -211,7 +215,7 @@ PlanStage* buildStages(OperationContext* opCtx,
             auto ret = std::make_unique<OrStage>(opCtx, ws, orn->dedup, orn->filter.get());
             for (size_t i = 0; i < orn->children.size(); ++i) {
                 PlanStage* childStage =
-                    buildStages(opCtx, collection, cq, qsol, orn->children[i], ws);
+                    buildStages(opCtx, collection, cq, qsol, orn->children[i].get(), ws);
                 if (nullptr == childStage) {
                     return nullptr;
                 }
@@ -224,7 +228,7 @@ PlanStage* buildStages(OperationContext* opCtx,
             auto ret = std::make_unique<AndSortedStage>(opCtx, ws);
             for (size_t i = 0; i < asn->children.size(); ++i) {
                 PlanStage* childStage =
-                    buildStages(opCtx, collection, cq, qsol, asn->children[i], ws);
+                    buildStages(opCtx, collection, cq, qsol, asn->children[i].get(), ws);
                 if (nullptr == childStage) {
                     return nullptr;
                 }
@@ -241,7 +245,7 @@ PlanStage* buildStages(OperationContext* opCtx,
             auto ret = std::make_unique<MergeSortStage>(opCtx, params, ws);
             for (size_t i = 0; i < msn->children.size(); ++i) {
                 PlanStage* childStage =
-                    buildStages(opCtx, collection, cq, qsol, msn->children[i], ws);
+                    buildStages(opCtx, collection, cq, qsol, msn->children[i].get(), ws);
                 if (nullptr == childStage) {
                     return nullptr;
                 }
@@ -306,7 +310,8 @@ PlanStage* buildStages(OperationContext* opCtx,
         }
         case STAGE_SHARDING_FILTER: {
             const ShardingFilterNode* fn = static_cast<const ShardingFilterNode*>(root);
-            PlanStage* childStage = buildStages(opCtx, collection, cq, qsol, fn->children[0], ws);
+            PlanStage* childStage =
+                buildStages(opCtx, collection, cq, qsol, fn->children[0].get(), ws);
             if (nullptr == childStage) {
                 return nullptr;
             }
@@ -368,7 +373,8 @@ PlanStage* buildStages(OperationContext* opCtx,
         }
         case STAGE_ENSURE_SORTED: {
             const EnsureSortedNode* esn = static_cast<const EnsureSortedNode*>(root);
-            PlanStage* childStage = buildStages(opCtx, collection, cq, qsol, esn->children[0], ws);
+            PlanStage* childStage =
+                buildStages(opCtx, collection, cq, qsol, esn->children[0].get(), ws);
             if (nullptr == childStage) {
                 return nullptr;
             }

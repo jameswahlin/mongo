@@ -63,7 +63,7 @@ namespace dps = ::mongo::dotted_path_support;
 /**
  * Text node functors.
  */
-bool isTextNode(const QuerySolutionNode* node) {
+bool isTextNode(const std::unique_ptr<QuerySolutionNode>& node) {
     return STAGE_TEXT == node->getType();
 }
 
@@ -88,7 +88,7 @@ const IndexScanNode* getIndexScanNode(const QuerySolutionNode* node) {
         return static_cast<const IndexScanNode*>(node);
     } else if (STAGE_FETCH == node->getType()) {
         invariant(1U == node->children.size());
-        const QuerySolutionNode* child = node->children[0];
+        const QuerySolutionNode* child = node->children[0].get();
         if (STAGE_IXSCAN == child->getType()) {
             return static_cast<const IndexScanNode*>(child);
         }
@@ -634,7 +634,7 @@ void QueryPlannerAccess::finishAndOutputLeaf(ScanBuildingState* scanState,
             // Takes ownership.
             fetch->filter = std::move(scanState->curOr);
             // Takes ownership.
-            fetch->children.push_back(scanState->currentScan.release());
+            fetch->children.push_back(std::move(scanState->currentScan));
 
             scanState->currentScan = std::move(fetch);
         } else if (scanState->loosestBounds == IndexBoundsBuilder::INEXACT_COVERED) {
@@ -1135,7 +1135,7 @@ std::unique_ptr<QuerySolutionNode> QueryPlannerAccess::buildIndexedAnd(
         auto fetch = std::make_unique<FetchNode>();
         fetch->filter = std::move(clonedRoot);
         // Takes ownership of 'andResult'.
-        fetch->children.push_back(andResult.release());
+        fetch->children.push_back(std::move(andResult));
         return std::move(fetch);
     }
 
@@ -1156,7 +1156,7 @@ std::unique_ptr<QuerySolutionNode> QueryPlannerAccess::buildIndexedAnd(
             fetch->filter = std::move(ownedRoot);
         }
         // takes ownership
-        fetch->children.push_back(andResult.release());
+        fetch->children.push_back(std::move(andResult));
         andResult = std::move(fetch);
     } else {
         // root has no children, let autoRoot get rid of it when it goes out of scope.
@@ -1302,7 +1302,7 @@ std::unique_ptr<QuerySolutionNode> QueryPlannerAccess::_buildIndexedDataAccess(
             } else {
                 auto fetch = std::make_unique<FetchNode>();
                 fetch->filter = std::move(ownedRoot);
-                fetch->children.push_back(soln.release());
+                fetch->children.push_back(std::move(soln));
                 return std::move(fetch);
             }
         } else if (Indexability::arrayUsesIndexOnChildren(root)) {
@@ -1326,7 +1326,7 @@ std::unique_ptr<QuerySolutionNode> QueryPlannerAccess::_buildIndexedDataAccess(
 
             auto fetch = std::make_unique<FetchNode>();
             fetch->filter = std::move(ownedRoot);
-            fetch->children.push_back(solution.release());
+            fetch->children.push_back(std::move(solution));
             return std::move(fetch);
         }
     }
@@ -1363,7 +1363,7 @@ std::unique_ptr<QuerySolutionNode> QueryPlannerAccess::scanWholeIndex(
         // for now it's safe (though *maybe* slower).
         unique_ptr<FetchNode> fetch = std::make_unique<FetchNode>();
         fetch->filter = std::move(filter);
-        fetch->children.push_back(isn.release());
+        fetch->children.push_back(std::move(isn));
         solnRoot = std::move(fetch);
     }
 
@@ -1492,7 +1492,7 @@ std::unique_ptr<QuerySolutionNode> QueryPlannerAccess::makeIndexScan(
         // for now it's safe (though *maybe* slower).
         unique_ptr<FetchNode> fetch = std::make_unique<FetchNode>();
         fetch->filter = std::move(filter);
-        fetch->children.push_back(isn.release());
+        fetch->children.push_back(std::move(isn));
         solnRoot = std::move(fetch);
     }
 

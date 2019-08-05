@@ -80,10 +80,11 @@ public:
     /**
      * Sort the results, if there is a sort required.
      */
-    static QuerySolutionNode* analyzeSort(const CanonicalQuery& query,
-                                          const QueryPlannerParams& params,
-                                          QuerySolutionNode* solnRoot,
-                                          bool* blockingSortOut);
+    static std::unique_ptr<QuerySolutionNode>* analyzeSort(
+        const CanonicalQuery& query,
+        const QueryPlannerParams& params,
+        std::unique_ptr<QuerySolutionNode>* solnRoot,
+        bool* blockingSortOut);
 
     /**
      * Internal helper function used by analyzeSort.
@@ -110,7 +111,7 @@ public:
      */
     static bool explodeForSort(const CanonicalQuery& query,
                                const QueryPlannerParams& params,
-                               QuerySolutionNode** solnRoot);
+                               std::unique_ptr<QuerySolutionNode>* solnRoot);
 };
 
 }  // namespace mongo

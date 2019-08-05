@@ -67,7 +67,7 @@ void getLeafNodes(QuerySolutionNode* root, vector<QuerySolutionNode*>* leafNodes
         leafNodes->push_back(root);
     } else {
         for (size_t i = 0; i < root->children.size(); ++i) {
-            getLeafNodes(root->children[i], leafNodes);
+            getLeafNodes(root->children[i].get(), leafNodes);
         }
     }
 }
@@ -97,7 +97,8 @@ bool isUnionOfPoints(const OrderedIntervalList& oil) {
  * Returns the node which should be replaced by the merge sort of exploded scans
  * in the out-parameter 'toReplace'.
  */
-bool structureOKForExplode(QuerySolutionNode* solnRoot, QuerySolutionNode** toReplace) {
+std::tuple<bool, std::unique_ptr<QuerySolutionNode>*> structureOKForExplode(
+    std::unique_ptr<QuerySolutionNode>* solnRoot) {
     // For now we only explode if we *know* we will pull the sort out.  We can look at
     // more structure (or just explode and recalculate properties and see what happens)
     // but for now we just explode if it's a sure bet.
@@ -105,34 +106,39 @@ bool structureOKForExplode(QuerySolutionNode* solnRoot, QuerySolutionNode** toRe
     // TODO: Can also try exploding if root is AND_HASH (last child dictates order.),
     // or other less obvious cases...
 
+    std::unique_ptr<QuerySolutionNode>* toReplace = nullptr;
+
     // Skip over a sharding filter stage.
-    if (STAGE_SHARDING_FILTER == solnRoot->getType()) {
-        solnRoot = solnRoot->children[0];
+    if (STAGE_SHARDING_FILTER == (*solnRoot)->getType()) {
+        solnRoot = &(*solnRoot)->children[0];
     }
 
-    if (STAGE_IXSCAN == solnRoot->getType()) {
-        *toReplace = solnRoot;
-        return true;
+    if (STAGE_IXSCAN == (*solnRoot)->getType()) {
+        toReplace = solnRoot;
+        return std::make_tuple<bool, std::unique_ptr<QuerySolutionNode>*>(true,
+                                                                          std::move(toReplace));
     }
 
-    if (STAGE_FETCH == solnRoot->getType()) {
-        if (STAGE_IXSCAN == solnRoot->children[0]->getType()) {
-            *toReplace = solnRoot->children[0];
-            return true;
+    if (STAGE_FETCH == (*solnRoot)->getType()) {
+        if (STAGE_IXSCAN == (*solnRoot)->children[0]->getType()) {
+            toReplace = &(*solnRoot)->children[0];
+            return std::make_tuple<bool, std::unique_ptr<QuerySolutionNode>*>(true,
+                                                                              std::move(toReplace));
         }
     }
 
-    if (STAGE_OR == solnRoot->getType()) {
-        for (size_t i = 0; i < solnRoot->children.size(); ++i) {
-            if (STAGE_IXSCAN != solnRoot->children[i]->getType()) {
-                return false;
+    if (STAGE_OR == (*solnRoot)->getType()) {
+        for (size_t i = 0; i < (*solnRoot)->children.size(); ++i) {
+            if (STAGE_IXSCAN != (*solnRoot)->children[i]->getType()) {
+                return std::make_tuple<bool, std::unique_ptr<QuerySolutionNode>*>(false, nullptr);
             }
         }
-        *toReplace = solnRoot;
-        return true;
+        toReplace = solnRoot;
+        return std::make_tuple<bool, std::unique_ptr<QuerySolutionNode>*>(true,
+                                                                          std::move(toReplace));
     }
 
-    return false;
+    return std::make_tuple<bool, std::unique_ptr<QuerySolutionNode>*>(false, nullptr);
 }
 
 // vectors of vectors can be > > annoying.
@@ -205,7 +211,7 @@ void makeCartesianProduct(const IndexBounds& bounds,
 void explodeScan(const IndexScanNode* isn,
                  const BSONObj& sort,
                  size_t fieldsToExplode,
-                 vector<QuerySolutionNode*>* explosionResult) {
+                 std::vector<std::unique_ptr<mongo::QuerySolutionNode>>* explosionResult) {
     // Turn the compact bounds in 'isn' into a bunch of points...
     vector<PointPrefix> prefixForScans;
     makeCartesianProduct(isn->bounds, fieldsToExplode, &prefixForScans);
@@ -215,7 +221,7 @@ void explodeScan(const IndexScanNode* isn,
         verify(prefix.size() == fieldsToExplode);
 
         // Copy boring fields into new child.
-        IndexScanNode* child = new IndexScanNode(isn->index);
+        auto child = std::make_unique<IndexScanNode>(isn->index);
         child->direction = isn->direction;
         child->addKeyMetadata = isn->addKeyMetadata;
         child->queryCollator = isn->queryCollator;
@@ -234,18 +240,18 @@ void explodeScan(const IndexScanNode* isn,
         for (size_t j = fieldsToExplode; j < isn->bounds.fields.size(); ++j) {
             child->bounds.fields[j] = isn->bounds.fields[j];
         }
-        explosionResult->push_back(child);
+        explosionResult->push_back(std::move(child));
     }
 }
 
 /**
  * In the tree '*root', replace 'oldNode' with 'newNode'.
  */
-void replaceNodeInTree(QuerySolutionNode** root,
-                       QuerySolutionNode* oldNode,
-                       QuerySolutionNode* newNode) {
-    if (*root == oldNode) {
-        *root = newNode;
+void replaceNodeInTree(std::unique_ptr<QuerySolutionNode>* root,
+                       std::unique_ptr<QuerySolutionNode>* oldNode,
+                       std::unique_ptr<MergeSortNode>* newNode) {
+    if (root->get() == oldNode->get()) {
+        *root = std::move(*newNode);
     } else {
         for (size_t i = 0; i < (*root)->children.size(); ++i) {
             replaceNodeInTree(&(*root)->children[i], oldNode, newNode);
@@ -259,7 +265,7 @@ bool hasNode(QuerySolutionNode* root, StageType type) {
     }
 
     for (size_t i = 0; i < root->children.size(); ++i) {
-        if (hasNode(root->children[i], type)) {
+        if (hasNode(root->children[i].get(), type)) {
             return true;
         }
     }
@@ -285,8 +291,8 @@ void geoSkipValidationOn(const std::set<StringData>& twoDSphereFields,
         }
     }
 
-    for (QuerySolutionNode* child : solnRoot->children) {
-        geoSkipValidationOn(twoDSphereFields, child);
+    for (auto& child : solnRoot->children) {
+        geoSkipValidationOn(twoDSphereFields, child.get());
     }
 }
 
@@ -346,7 +352,7 @@ std::unique_ptr<ProjectionNode> analyzeProjection(const CanonicalQuery& query,
         if (!hasSortStage && query.getProj()->wantSortKey()) {
             auto keyGenNode = std::make_unique<SortKeyGeneratorNode>();
             keyGenNode->sortSpec = qr.getSort();
-            keyGenNode->children.push_back(solnRoot.release());
+            keyGenNode->children.push_back(std::move(solnRoot));
             solnRoot = std::move(keyGenNode);
         }
     };
@@ -359,7 +365,7 @@ std::unique_ptr<ProjectionNode> analyzeProjection(const CanonicalQuery& query,
         (!isCoveredOrAlreadyFetched(query.getProj()->getRequiredFields(), *solnRoot) &&
          !query.getProj()->wantIndexKey())) {
         auto fetch = std::make_unique<FetchNode>();
-        fetch->children.push_back(solnRoot.release());
+        fetch->children.push_back(std::move(solnRoot));
         solnRoot = std::move(fetch);
     }
 
@@ -446,15 +452,17 @@ BSONObj QueryPlannerAnalysis::getSortPattern(const BSONObj& indexKeyPattern) {
 // static
 bool QueryPlannerAnalysis::explodeForSort(const CanonicalQuery& query,
                                           const QueryPlannerParams& params,
-                                          QuerySolutionNode** solnRoot) {
+                                          std::unique_ptr<QuerySolutionNode>* solnRoot) {
     vector<QuerySolutionNode*> leafNodes;
 
-    QuerySolutionNode* toReplace;
-    if (!structureOKForExplode(*solnRoot, &toReplace)) {
+    std::unique_ptr<QuerySolutionNode>* toReplace;
+    bool okForExplode;
+    tie(okForExplode, toReplace) = structureOKForExplode(solnRoot);
+    if (!okForExplode) {
         return false;
     }
 
-    getLeafNodes(*solnRoot, &leafNodes);
+    getLeafNodes((*solnRoot).get(), &leafNodes);
 
     const BSONObj& desiredSort = query.getQueryRequest().getSort();
 
@@ -558,7 +566,7 @@ bool QueryPlannerAnalysis::explodeForSort(const CanonicalQuery& query,
 
     // If we're here, we can (probably?  depends on how restrictive the structure check is)
     // get our sort order via ixscan blow-up.
-    MergeSortNode* merge = new MergeSortNode();
+    auto merge = std::make_unique<MergeSortNode>();
     merge->sort = desiredSort;
     for (size_t i = 0; i < leafNodes.size(); ++i) {
         IndexScanNode* isn = static_cast<IndexScanNode*>(leafNodes[i]);
@@ -568,18 +576,19 @@ bool QueryPlannerAnalysis::explodeForSort(const CanonicalQuery& query,
     merge->computeProperties();
 
     // Replace 'toReplace' with the new merge sort node.
-    replaceNodeInTree(solnRoot, toReplace, merge);
+    replaceNodeInTree(solnRoot, toReplace, &merge);
     // And get rid of the node that got replaced.
-    delete toReplace;
+    toReplace->reset();
 
     return true;
 }
 
 // static
-QuerySolutionNode* QueryPlannerAnalysis::analyzeSort(const CanonicalQuery& query,
-                                                     const QueryPlannerParams& params,
-                                                     QuerySolutionNode* solnRoot,
-                                                     bool* blockingSortOut) {
+std::unique_ptr<QuerySolutionNode>* QueryPlannerAnalysis::analyzeSort(
+    const CanonicalQuery& query,
+    const QueryPlannerParams& params,
+    std::unique_ptr<QuerySolutionNode>* solnRoot,
+    bool* blockingSortOut) {
     *blockingSortOut = false;
 
     const QueryRequest& qr = query.getQueryRequest();
@@ -600,7 +609,7 @@ QuerySolutionNode* QueryPlannerAnalysis::analyzeSort(const CanonicalQuery& query
     }
 
     // See if solnRoot gives us the sort.  If so, we're done.
-    BSONObjSet sorts = solnRoot->getSort();
+    BSONObjSet sorts = (*solnRoot)->getSort();
 
     // If the sort we want is in the set of sort orders provided already, bail out.
     if (sorts.end() != sorts.find(sortObj)) {
@@ -612,7 +621,7 @@ QuerySolutionNode* QueryPlannerAnalysis::analyzeSort(const CanonicalQuery& query
     BSONObj reverseSort = QueryPlannerCommon::reverseSortObj(sortObj);
     if (sorts.end() != sorts.find(reverseSort)) {
         QueryPlannerCommon::reverseScans(solnRoot);
-        LOG(5) << "Reversing ixscan to provide sort. Result: " << redact(solnRoot->toString());
+        LOG(5) << "Reversing ixscan to provide sort. Result: " << redact((*solnRoot)->toString());
         return solnRoot;
     }
 
@@ -638,7 +647,7 @@ QuerySolutionNode* QueryPlannerAnalysis::analyzeSort(const CanonicalQuery& query
                 // and there is a non-simple collation on the index. This will lead to encoding of
                 // the field from the document on fetch, despite having read the encoded value from
                 // the index.
-                return solnRoot->hasField(e.fieldName());
+                return (*solnRoot)->hasField(e.fieldName());
             });
 
         if (!sortIsCovered) {
@@ -775,7 +784,7 @@ std::unique_ptr<QuerySolution> QueryPlannerAnalysis::analyzeDataAccess(
     }
 
     bool hasSortStage = false;
-    solnRoot.reset(analyzeSort(query, params, solnRoot.release(), &hasSortStage));
+    solnRoot.reset(analyzeSort(query, params, &solnRoot, &hasSortStage));
 
     // This can happen if we need to create a blocking sort stage and we're not allowed to.
     if (!solnRoot) {

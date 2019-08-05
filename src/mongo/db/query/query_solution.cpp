@@ -210,9 +210,9 @@ void TextNode::appendToString(str::stream* ss, int indent) const {
     addCommon(ss, indent);
 }
 
-QuerySolutionNode* TextNode::clone() const {
-    TextNode* copy = new TextNode(this->index);
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> TextNode::clone() const {
+    auto copy = std::make_unique<TextNode>(this->index);
+    cloneBaseData(copy.get());
 
     copy->_sort = this->_sort;
     copy->ftsQuery = this->ftsQuery->clone();
@@ -240,9 +240,9 @@ void CollectionScanNode::appendToString(str::stream* ss, int indent) const {
     addCommon(ss, indent);
 }
 
-QuerySolutionNode* CollectionScanNode::clone() const {
-    CollectionScanNode* copy = new CollectionScanNode();
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> CollectionScanNode::clone() const {
+    auto copy = std::make_unique<CollectionScanNode>();
+    cloneBaseData(copy.get());
 
     copy->_sort = this->_sort;
     copy->name = this->name;
@@ -299,9 +299,9 @@ bool AndHashNode::hasField(const string& field) const {
     return false;
 }
 
-QuerySolutionNode* AndHashNode::clone() const {
-    AndHashNode* copy = new AndHashNode();
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> AndHashNode::clone() const {
+    auto copy = std::make_unique<AndHashNode>();
+    cloneBaseData(copy.get());
 
     copy->_sort = this->_sort;
 
@@ -349,9 +349,10 @@ bool AndSortedNode::hasField(const string& field) const {
     return false;
 }
 
-QuerySolutionNode* AndSortedNode::clone() const {
-    AndSortedNode* copy = new AndSortedNode();
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> AndSortedNode::clone() const {
+    auto copy = std::make_unique<AndSortedNode>();
+
+    cloneBaseData(copy.get());
 
     copy->_sort = this->_sort;
 
@@ -408,9 +409,9 @@ bool OrNode::hasField(const string& field) const {
     return true;
 }
 
-QuerySolutionNode* OrNode::clone() const {
-    OrNode* copy = new OrNode();
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> OrNode::clone() const {
+    auto copy = std::make_unique<OrNode>();
+    cloneBaseData(copy.get());
 
     copy->_sort = this->_sort;
     copy->dedup = this->dedup;
@@ -469,9 +470,9 @@ bool MergeSortNode::hasField(const string& field) const {
     return true;
 }
 
-QuerySolutionNode* MergeSortNode::clone() const {
-    MergeSortNode* copy = new MergeSortNode();
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> MergeSortNode::clone() const {
+    auto copy = std::make_unique<MergeSortNode>();
+    cloneBaseData(copy.get());
 
     copy->_sorts = this->_sorts;
     copy->dedup = this->dedup;
@@ -502,9 +503,9 @@ void FetchNode::appendToString(str::stream* ss, int indent) const {
     children[0]->appendToString(ss, indent + 2);
 }
 
-QuerySolutionNode* FetchNode::clone() const {
-    FetchNode* copy = new FetchNode();
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> FetchNode::clone() const {
+    auto copy = std::make_unique<FetchNode>();
+    cloneBaseData(copy.get());
 
     copy->_sorts = this->_sorts;
 
@@ -814,9 +815,9 @@ void IndexScanNode::computeProperties() {
         index, direction, bounds, queryCollator, &_sorts, &multikeyFields);
 }
 
-QuerySolutionNode* IndexScanNode::clone() const {
-    IndexScanNode* copy = new IndexScanNode(this->index);
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> IndexScanNode::clone() const {
+    auto copy = std::make_unique<IndexScanNode>(this->index);
+    cloneBaseData(copy.get());
 
     copy->_sorts = this->_sorts;
     copy->direction = this->direction;
@@ -896,17 +897,17 @@ void ProjectionNode::cloneProjectionData(ProjectionNode* copy) const {
     copy->_sorts = this->_sorts;
 }
 
-ProjectionNode* ProjectionNodeDefault::clone() const {
+std::unique_ptr<QuerySolutionNode> ProjectionNodeDefault::clone() const {
     auto copy = std::make_unique<ProjectionNodeDefault>(
         std::unique_ptr<QuerySolutionNode>(children[0]->clone()),
         fullExpression,
         projection,
         parsed);
     ProjectionNode::cloneProjectionData(copy.get());
-    return copy.release();
+    return copy;
 }
 
-ProjectionNode* ProjectionNodeCovered::clone() const {
+std::unique_ptr<QuerySolutionNode> ProjectionNodeCovered::clone() const {
     auto copy = std::make_unique<ProjectionNodeCovered>(
         std::unique_ptr<QuerySolutionNode>(children[0]->clone()),
         fullExpression,
@@ -914,17 +915,17 @@ ProjectionNode* ProjectionNodeCovered::clone() const {
         parsed,
         coveredKeyObj);
     ProjectionNode::cloneProjectionData(copy.get());
-    return copy.release();
+    return copy;
 }
 
-ProjectionNode* ProjectionNodeSimple::clone() const {
+std::unique_ptr<QuerySolutionNode> ProjectionNodeSimple::clone() const {
     auto copy = std::make_unique<ProjectionNodeSimple>(
         std::unique_ptr<QuerySolutionNode>(children[0]->clone()),
         fullExpression,
         projection,
         parsed);
     ProjectionNode::cloneProjectionData(copy.get());
-    return copy.release();
+    return copy;
 }
 
 
@@ -943,9 +944,9 @@ void SortKeyGeneratorNode::appendToString(str::stream* ss, int indent) const {
     children[0]->appendToString(ss, indent + 2);
 }
 
-QuerySolutionNode* SortKeyGeneratorNode::clone() const {
-    SortKeyGeneratorNode* copy = new SortKeyGeneratorNode();
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> SortKeyGeneratorNode::clone() const {
+    auto copy = std::make_unique<SortKeyGeneratorNode>();
+    cloneBaseData(copy.get());
     copy->sortSpec = this->sortSpec;
     return copy;
 }
@@ -967,9 +968,9 @@ void SortNode::appendToString(str::stream* ss, int indent) const {
     children[0]->appendToString(ss, indent + 2);
 }
 
-QuerySolutionNode* SortNode::clone() const {
-    SortNode* copy = new SortNode();
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> SortNode::clone() const {
+    auto copy = std::make_unique<SortNode>();
+    cloneBaseData(copy.get());
 
     copy->_sorts = this->_sorts;
     copy->pattern = this->pattern;
@@ -996,9 +997,9 @@ void LimitNode::appendToString(str::stream* ss, int indent) const {
     children[0]->appendToString(ss, indent + 2);
 }
 
-QuerySolutionNode* LimitNode::clone() const {
-    LimitNode* copy = new LimitNode();
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> LimitNode::clone() const {
+    auto copy = std::make_unique<LimitNode>();
+    cloneBaseData(copy.get());
 
     copy->limit = this->limit;
 
@@ -1020,9 +1021,9 @@ void SkipNode::appendToString(str::stream* ss, int indent) const {
     children[0]->appendToString(ss, indent + 2);
 }
 
-QuerySolutionNode* SkipNode::clone() const {
-    SkipNode* copy = new SkipNode();
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> SkipNode::clone() const {
+    auto copy = std::make_unique<SkipNode>();
+    cloneBaseData(copy.get());
 
     copy->skip = this->skip;
 
@@ -1048,9 +1049,9 @@ void GeoNear2DNode::appendToString(str::stream* ss, int indent) const {
     }
 }
 
-QuerySolutionNode* GeoNear2DNode::clone() const {
-    GeoNear2DNode* copy = new GeoNear2DNode(this->index);
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> GeoNear2DNode::clone() const {
+    auto copy = std::make_unique<GeoNear2DNode>(this->index);
+    cloneBaseData(copy.get());
 
     copy->_sorts = this->_sorts;
     copy->nq = this->nq;
@@ -1082,9 +1083,9 @@ void GeoNear2DSphereNode::appendToString(str::stream* ss, int indent) const {
     }
 }
 
-QuerySolutionNode* GeoNear2DSphereNode::clone() const {
-    GeoNear2DSphereNode* copy = new GeoNear2DSphereNode(this->index);
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> GeoNear2DSphereNode::clone() const {
+    auto copy = std::make_unique<GeoNear2DSphereNode>(this->index);
+    cloneBaseData(copy.get());
 
     copy->_sorts = this->_sorts;
     copy->nq = this->nq;
@@ -1115,9 +1116,9 @@ void ShardingFilterNode::appendToString(str::stream* ss, int indent) const {
     children[0]->appendToString(ss, indent + 2);
 }
 
-QuerySolutionNode* ShardingFilterNode::clone() const {
-    ShardingFilterNode* copy = new ShardingFilterNode();
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> ShardingFilterNode::clone() const {
+    auto copy = std::make_unique<ShardingFilterNode>();
+    cloneBaseData(copy.get());
     return copy;
 }
 
@@ -1138,9 +1139,9 @@ void DistinctNode::appendToString(str::stream* ss, int indent) const {
     *ss << "bounds = " << bounds.toString() << '\n';
 }
 
-QuerySolutionNode* DistinctNode::clone() const {
-    DistinctNode* copy = new DistinctNode(this->index);
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> DistinctNode::clone() const {
+    auto copy = std::make_unique<DistinctNode>(this->index);
+    cloneBaseData(copy.get());
 
     copy->sorts = this->sorts;
     copy->direction = this->direction;
@@ -1176,9 +1177,9 @@ void CountScanNode::appendToString(str::stream* ss, int indent) const {
     *ss << "endKey = " << endKey << '\n';
 }
 
-QuerySolutionNode* CountScanNode::clone() const {
-    CountScanNode* copy = new CountScanNode(this->index);
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> CountScanNode::clone() const {
+    auto copy = std::make_unique<CountScanNode>(this->index);
+    cloneBaseData(copy.get());
 
     copy->sorts = this->sorts;
     copy->startKey = this->startKey;
@@ -1204,9 +1205,9 @@ void EnsureSortedNode::appendToString(str::stream* ss, int indent) const {
     children[0]->appendToString(ss, indent + 2);
 }
 
-QuerySolutionNode* EnsureSortedNode::clone() const {
-    EnsureSortedNode* copy = new EnsureSortedNode();
-    cloneBaseData(copy);
+std::unique_ptr<QuerySolutionNode> EnsureSortedNode::clone() const {
+    auto copy = std::make_unique<EnsureSortedNode>();
+    cloneBaseData(copy.get());
 
     copy->pattern = this->pattern;
 
