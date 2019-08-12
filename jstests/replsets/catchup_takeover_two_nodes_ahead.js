@@ -31,7 +31,7 @@ replSet.awaitReplication();
 stopServerReplication(nodes.slice(2, 5));
 var primary = replSet.getPrimary();
 var writeConcern = {writeConcern: {w: 2, wtimeout: replSet.kDefaultTimeoutMS}};
-assert.writeOK(primary.getDB(name).bar.insert({x: 100}, writeConcern));
+assert.commandWorked(primary.getDB(name).bar.insert({x: 100}, writeConcern));
 
 const initialPrimaryStatus = assert.commandWorked(primary.adminCommand({serverStatus: 1}));
 
@@ -40,7 +40,7 @@ stopServerReplication(nodes[1]);
 writeConcern = {
     writeConcern: {w: 1, wtimeout: replSet.kDefaultTimeoutMS}
 };
-assert.writeOK(primary.getDB(name).bar.insert({y: 100}, writeConcern));
+assert.commandWorked(primary.getDB(name).bar.insert({y: 100}, writeConcern));
 
 // Step up one of the lagged nodes.
 assert.commandWorked(nodes[2].adminCommand({replSetStepUp: 1}));
