@@ -260,6 +260,47 @@ TEST(SerializeBasic, ExpressionElemMatchValueWithEmptyStringSerializesCorrectly)
     ASSERT_EQ(original.matches(obj), reserialized.matches(obj));
 }
 
+TEST(SerializeBasic, ExpressionElemMatchValueWithNotEqualSerializesCorrectly) {
+    boost::intrusive_ptr<ExpressionContextForTest> expCtx(new ExpressionContextForTest());
+    Matcher original(fromjson("{x: {$elemMatch: {$ne: 1}}}"),
+                     expCtx,
+                     ExtensionsCallbackNoop(),
+                     MatchExpressionParser::kAllowAllSpecialFeatures);
+    Matcher reserialized(serialize(original.getMatchExpression()),
+                         expCtx,
+                         ExtensionsCallbackNoop(),
+                         MatchExpressionParser::kAllowAllSpecialFeatures);
+    ASSERT_BSONOBJ_EQ(*reserialized.getQuery(), fromjson("{x: {$elemMatch: {$not: {$eq: 1}}}}"));
+    ASSERT_BSONOBJ_EQ(*reserialized.getQuery(), serialize(reserialized.getMatchExpression()));
+
+    BSONObj obj = fromjson("{x: [{a: 1, b: -1}, {a: -1, b: 1}]}");
+    ASSERT_EQ(original.matches(obj), reserialized.matches(obj));
+
+    obj = fromjson("{x: [{a: 1, b: 1}, {a: 0, b: 0}]}");
+    ASSERT_EQ(original.matches(obj), reserialized.matches(obj));
+
+    obj = fromjson("{x: [1, 0]}");
+    ASSERT_EQ(original.matches(obj), reserialized.matches(obj));
+}
+
+TEST(SerializeBasic, ExpressionElemMatchValueWithNotLessThanGreaterThanSerializesCorrectly) {
+    boost::intrusive_ptr<ExpressionContextForTest> expCtx(new ExpressionContextForTest());
+    Matcher original(fromjson("{x: {$elemMatch: {$not: {$lt: 10, $gt: 5}}}}"),
+                     expCtx,
+                     ExtensionsCallbackNoop(),
+                     MatchExpressionParser::kAllowAllSpecialFeatures);
+    Matcher reserialized(serialize(original.getMatchExpression()),
+                         expCtx,
+                         ExtensionsCallbackNoop(),
+                         MatchExpressionParser::kAllowAllSpecialFeatures);
+    ASSERT_BSONOBJ_EQ(*reserialized.getQuery(),
+                      fromjson("{x: {$elemMatch: {$not: {$lt: 10, $gt: 5}}}}"));
+    ASSERT_BSONOBJ_EQ(*reserialized.getQuery(), serialize(reserialized.getMatchExpression()));
+
+    auto obj = fromjson("{x: [5]}");
+    ASSERT_EQ(original.matches(obj), reserialized.matches(obj));
+}
+
 TEST(SerializeBasic, ExpressionSizeSerializesCorrectly) {
     boost::intrusive_ptr<ExpressionContextForTest> expCtx(new ExpressionContextForTest());
     Matcher original(fromjson("{x: {$size: 2}}"),
