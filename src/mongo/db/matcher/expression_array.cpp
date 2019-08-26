@@ -202,7 +202,6 @@ void ElemMatchValueMatchExpression::serialize(BSONObjBuilder* out) const {
             });
 
         if (allChildrenArePathMatchExpression) {
-
             BSONObjBuilder pathBuilder(out->subobjStart(path()));
             BSONObjBuilder elemMatchBuilder(pathBuilder.subobjStart("$elemMatch"));
             BSONObjBuilder notBuilder(elemMatchBuilder.subobjStart("$not"));
