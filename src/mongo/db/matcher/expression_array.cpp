@@ -196,14 +196,22 @@ void ElemMatchValueMatchExpression::serialize(BSONObjBuilder* out) const {
             childList = *notChildExpr->getChildVector();
         }
 
-        BSONObjBuilder listBob;
+        BSONObjBuilder pathBuilder(out->subobjStart(path()));
+        BSONObjBuilder elemMatchBuilder(pathBuilder.subobjStart("$elemMatch"));
+        BSONObjBuilder notBuilder(elemMatchBuilder.subobjStart("$not"));
+
         for (auto&& child : childList) {
+            uassert(31156,
+                    str::stream() << "Expected PathMatchExpression: " << child->toString(),
+                    dynamic_cast<PathMatchExpression*>(child));
             BSONObjBuilder predicate;
             child->serialize(&predicate);
-            BSONObj predObj = predicate.obj();
-            listBob.appendElements(predObj.firstElement().embeddedObject());
+            notBuilder.appendElements(predicate.obj().firstElement().embeddedObject());
         }
-        out->append(path(), BSON("$elemMatch" << BSON("$not" << listBob.obj())));
+
+        notBuilder.doneFast();
+        elemMatchBuilder.doneFast();
+        pathBuilder.doneFast();
         return;
     }
 
