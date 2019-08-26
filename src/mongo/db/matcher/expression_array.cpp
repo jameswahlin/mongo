@@ -196,23 +196,28 @@ void ElemMatchValueMatchExpression::serialize(BSONObjBuilder* out) const {
             childList = *notChildExpr->getChildVector();
         }
 
-        BSONObjBuilder pathBuilder(out->subobjStart(path()));
-        BSONObjBuilder elemMatchBuilder(pathBuilder.subobjStart("$elemMatch"));
-        BSONObjBuilder notBuilder(elemMatchBuilder.subobjStart("$not"));
+        const bool allChildrenArePathMatchExpression =
+            std::all_of(childList.begin(), childList.end(), [](MatchExpression* child) {
+                return dynamic_cast<PathMatchExpression*>(child);
+            });
 
-        for (auto&& child : childList) {
-            uassert(31156,
-                    str::stream() << "Expected PathMatchExpression: " << child->toString(),
-                    dynamic_cast<PathMatchExpression*>(child));
-            BSONObjBuilder predicate;
-            child->serialize(&predicate);
-            notBuilder.appendElements(predicate.obj().firstElement().embeddedObject());
+        if (allChildrenArePathMatchExpression) {
+
+            BSONObjBuilder pathBuilder(out->subobjStart(path()));
+            BSONObjBuilder elemMatchBuilder(pathBuilder.subobjStart("$elemMatch"));
+            BSONObjBuilder notBuilder(elemMatchBuilder.subobjStart("$not"));
+
+            for (auto&& child : childList) {
+                BSONObjBuilder predicate;
+                child->serialize(&predicate);
+                notBuilder.appendElements(predicate.obj().firstElement().embeddedObject());
+            }
+
+            notBuilder.doneFast();
+            elemMatchBuilder.doneFast();
+            pathBuilder.doneFast();
+            return;
         }
-
-        notBuilder.doneFast();
-        elemMatchBuilder.doneFast();
-        pathBuilder.doneFast();
-        return;
     }
 
     for (unsigned i = 0; i < _subs.size(); i++) {
