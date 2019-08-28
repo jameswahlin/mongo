@@ -780,10 +780,11 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
 
         PlanEnumerator isp(enumParams);
         isp.init().transitional_ignore();
+        std::cout << isp.dumpMemo() << std::endl;
 
         unique_ptr<MatchExpression> nextTaggedTree;
         while ((nextTaggedTree = isp.getNext()) && (out.size() < params.maxIndexedSolutions)) {
-            LOG(5) << "About to build solntree from tagged tree:" << endl
+            LOG(0) << "About to build solntree from tagged tree:" << endl
                    << redact(nextTaggedTree->debugString());
 
             // Store the plan cache index tree before calling prepareForAccessingPlanning(), so that
@@ -808,12 +809,13 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
                 query, std::move(nextTaggedTree), relevantIndices, params));
 
             if (!solnRoot) {
+                std::cout << "JJ No solnRoot" << std::endl;
                 continue;
             }
 
             auto soln = QueryPlannerAnalysis::analyzeDataAccess(query, params, std::move(solnRoot));
             if (soln) {
-                LOG(5) << "Planner: adding solution:" << endl << redact(soln->toString());
+                LOG(0) << "JJ Planner: adding solution:" << endl << soln->toString();
                 if (statusWithCacheData.isOK()) {
                     SolutionCacheData* scd = new SolutionCacheData();
                     scd->tree = std::move(cacheData);
@@ -821,13 +823,16 @@ StatusWith<std::vector<std::unique_ptr<QuerySolution>>> QueryPlanner::plan(
                 }
                 out.push_back(std::move(soln));
             }
+            else {
+                std::cout << "JJ No soln" << std::endl;
+            }
         }
     }
 
     // Don't leave tags on query tree.
     query.root()->resetTag();
 
-    LOG(5) << "Planner: outputted " << out.size() << " indexed solutions.";
+    std::cout << "JJ Planner: outputted " << out.size() << " indexed solutions." << std::endl;
 
     // Produce legible error message for failed OR planning with a TEXT child.
     // TODO: support collection scan for non-TEXT children of OR.

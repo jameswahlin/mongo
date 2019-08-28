@@ -107,6 +107,7 @@ public:
      * added in order to indicate index usage.
      */
     std::unique_ptr<MatchExpression> getNext();
+    std::string dumpMemo();
 
 private:
     //
@@ -432,6 +433,7 @@ private:
     /**
      * Output index intersection assignments inside of an AND node.
      */
+    //typedef std::map<IndexID, std::vector<MatchExpression*>> IndexToPredMap;
     typedef stdx::unordered_map<IndexID, std::vector<MatchExpression*>> IndexToPredMap;
 
     /**
@@ -519,8 +521,6 @@ private:
      * actually exists.
      */
     MemoID memoIDForNode(MatchExpression* node);
-
-    std::string dumpMemo();
 
     // Map from expression to its MemoID.
     stdx::unordered_map<MatchExpression*, MemoID> _nodeToId;

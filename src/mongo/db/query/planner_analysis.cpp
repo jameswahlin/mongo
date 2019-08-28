@@ -734,6 +734,9 @@ std::unique_ptr<QuerySolution> QueryPlannerAnalysis::analyzeDataAccess(
     const CanonicalQuery& query,
     const QueryPlannerParams& params,
     std::unique_ptr<QuerySolutionNode> solnRoot) {
+
+    LOG(5) << "JJ Planner: analyzing solution:" << endl << solnRoot->toString();
+
     auto soln = std::make_unique<QuerySolution>();
     soln->filterData = query.getQueryObj();
     soln->indexFilterApplied = params.indexFiltersApplied;
