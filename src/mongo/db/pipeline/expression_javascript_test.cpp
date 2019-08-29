@@ -29,28 +29,71 @@
 
 #include "mongo/db/pipeline/expression_javascript.h"
 
+#include "mongo/db/commands/test_commands_enabled.h"
+#include "mongo/db/pipeline/document.h"
+#include "mongo/db/pipeline/document_value_test_util.h"
+#include "mongo/db/pipeline/expression_context_for_test.h"
+#include "mongo/db/pipeline/process_interface_standalone.h"
+#include "mongo/db/service_context_d_test_fixture.h"
 #include "mongo/scripting/engine.h"
 #include "mongo/unittest/unittest.h"
 
 namespace mongo {
 namespace {
 
-class MapReduceFixture : public unittest::Test {
+class MapReduceFixture : public ServiceContextMongoDTest {
+protected:
+    MapReduceFixture()
+        : _expCtx((new ExpressionContextForTest())), _vps(_expCtx->variablesParseState) {
+        _expCtx->mongoProcessInterface = std::make_shared<MongoInterfaceStandalone>(_expCtx->opCtx);
+    }
+
+    boost::intrusive_ptr<ExpressionContextForTest>& getExpCtx() {
+        return _expCtx;
+    }
+
+    const VariablesParseState& getVPS() {
+        return _vps;
+    }
+
+    Variables* getVariables() {
+        return &_expCtx->variables;
+    }
+
 private:
     void setUp() override;
     void tearDown() override;
+
+    boost::intrusive_ptr<ExpressionContextForTest> _expCtx;
+    VariablesParseState _vps;
 };
 
 
 void MapReduceFixture::setUp() {
+    setTestCommandsEnabled(true);
+    ServiceContextMongoDTest::setUp();
     ScriptEngine::setup();
 }
 
 void MapReduceFixture::tearDown() {
     ScriptEngine::dropScopeCache();
+    ServiceContextMongoDTest::tearDown();
 }
 
-TEST_F(MapReduceFixture, SanityCheck) {}
+TEST_F(MapReduceFixture, ExpressionInternalJs) {
+    auto bsonExpr = BSON("expr" << BSON("eval"
+                                        << "function(first, second) {return first + second;};"
+                                        << "args" << BSON_ARRAY(1 << 2)));
+
+    auto expr = ExpressionInternalJs::parse(getExpCtx(), bsonExpr.firstElement(), getVPS());
+
+    Value result = expr->evaluate({}, getVariables());
+    std::cout << "JJ result: " << result << std::endl;
+
+    ASSERT_VALUE_EQ(result, Value(3));
+}
+
+TEST_F(MapReduceFixture, ExpressionInternalJsEmit) {}
 
 }  // namespace
 }  // namespace mongo
