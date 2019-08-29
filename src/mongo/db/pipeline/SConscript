@@ -479,6 +479,7 @@ env.CppUnitTest(
         'document_value_test_util_self_test.cpp',
         'expression_convert_test.cpp',
         'expression_date_test.cpp',
+        'expression_javascript_test.cpp',
         'expression_test.cpp',
         'expression_trigonometric_test.cpp',
         'expression_walker_test.cpp',
