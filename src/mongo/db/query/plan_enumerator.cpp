@@ -292,7 +292,7 @@ std::string PlanEnumerator::dumpMemo() {
 string PlanEnumerator::NodeAssignment::toString() const {
     if (nullptr != andAssignment) {
         str::stream ss;
-        //ss << "JJ AND enumstate counter " << andAssignment->counter;
+        ss << "AND enumstate counter " << andAssignment->counter;
         for (size_t i = 0; i < andAssignment->choices.size(); ++i) {
             ss << "\n\tchoice " << i << ":\n";
             const AndEnumerableState& state = andAssignment->choices[i];
@@ -359,7 +359,7 @@ unique_ptr<MatchExpression> PlanEnumerator::getNext() {
     tagForSort(tree.get());
 
     _root->resetTag();
-    //LOG(0) << "JJ Enumerator: memo just before moving:" << endl << dumpMemo();
+    LOG(5) << "Enumerator: memo just before moving:" << endl << dumpMemo();
     _done = nextMemo(memoIDForNode(_root));
     return tree;
 }
@@ -877,7 +877,6 @@ void PlanEnumerator::enumerateOneIndex(
     }
 
     // For each FIRST, we assign predicates to it.
-    // JJJJ
     for (IndexToPredMap::const_iterator it = idxToFirst.begin(); it != idxToFirst.end(); ++it) {
         const IndexEntry& thisIndex = (*_indices)[it->first];
 
@@ -1023,7 +1022,6 @@ void PlanEnumerator::enumerateAndIntersect(const IndexToPredMap& idxToFirst,
 
     size_t sizeBefore = andAssignment->choices.size();
 
-    // JJJJ
     for (IndexToPredMap::const_iterator firstIt = idxToFirst.begin(); firstIt != idxToFirst.end();
          ++firstIt) {
         const IndexEntry& oneIndex = (*_indices)[firstIt->first];
@@ -1044,7 +1042,6 @@ void PlanEnumerator::enumerateAndIntersect(const IndexToPredMap& idxToFirst,
             // have an ixscan per clause.
             static const size_t kMaxSelfIntersections = 10;
             if (oneAssign.preds.size() > kMaxSelfIntersections) {
-                //std::cout << "JJ kMaxSelfIntersections" << std::endl;
                 // Only take the first kMaxSelfIntersections preds.
                 oneAssign.preds.resize(kMaxSelfIntersections);
                 oneAssign.positions.resize(kMaxSelfIntersections);
@@ -1070,7 +1067,6 @@ void PlanEnumerator::enumerateAndIntersect(const IndexToPredMap& idxToFirst,
             andAssignment->choices.push_back(std::move(indexAndSubnode));
             // Limit n^2.
             if (andAssignment->choices.size() - sizeBefore > _intersectLimit) {
-                //std::cout << "JJ Limit 1" << std::endl;
                 return;
             }
         }
@@ -1079,14 +1075,12 @@ void PlanEnumerator::enumerateAndIntersect(const IndexToPredMap& idxToFirst,
         // with firstAssign.
         IndexToPredMap::const_iterator secondIt = firstIt;
         secondIt++;
-        // JJJJ
         for (; secondIt != idxToFirst.end(); secondIt++) {
             const IndexEntry& firstIndex = (*_indices)[secondIt->first];
             const IndexEntry& secondIndex = (*_indices)[secondIt->first];
 
             // Limit n^2.
             if (andAssignment->choices.size() - sizeBefore > _intersectLimit) {
-                //std::cout << "JJ Limit 2" << std::endl;
                 return;
             }
 
@@ -1095,7 +1089,6 @@ void PlanEnumerator::enumerateAndIntersect(const IndexToPredMap& idxToFirst,
             // equal to the current value of secondIt and we'll assign every pred for
             // this mapping to the index.
             if (secondIndex.multikey && secondIt->second.size() > 1) {
-                //std::cout << "JJ Bail" << std::endl;
                 continue;
             }
 
@@ -1157,7 +1150,6 @@ void PlanEnumerator::enumerateAndIntersect(const IndexToPredMap& idxToFirst,
             // Every predicate that would use this index is already assigned in
             // firstAssign.
             if (0 == secondAssign.preds.size()) {
-                //std::cout << "JJ firstAssign" << std::endl;
                 continue;
             }
 
@@ -1231,7 +1223,6 @@ void PlanEnumerator::enumerateAndIntersect(const IndexToPredMap& idxToFirst,
                 // There is no need to add either 'firstAssign' or 'secondAssign'
                 // to 'andAssignment' in this case because we have already performed
                 // assignments to single indices in enumerateOneIndex(...).
-                //std::cout << "JJ alreadyCompounded" << std::endl;
                 continue;
             }
 
@@ -1582,7 +1573,6 @@ void PlanEnumerator::tagMemo(size_t id) {
     verify(nullptr != assign);
 
     if (nullptr != assign->orAssignment) {
-        //std::cout << "JJ orAssignement" << std::endl;
         OrAssignment* oa = assign->orAssignment.get();
         for (size_t i = 0; i < oa->subnodes.size(); ++i) {
             tagMemo(oa->subnodes[i]);
@@ -1640,7 +1630,6 @@ bool PlanEnumerator::nextMemo(size_t id) {
         // Limit the number of OR enumerations
         oa->counter++;
         if (oa->counter >= _orLimit) {
-            std::cout << "JJ _orLimit reached" << std::endl;
             return true;
         }
 
@@ -1681,10 +1670,8 @@ bool PlanEnumerator::nextMemo(size_t id) {
 
         // None of the subnodes had another enumeration state, so we move on to the
         // next top-level choice.
-        //std::cout << "JJ id=" << id << ", counter=" << (aa->counter+1)<< std::endl;
         ++aa->counter;
         if (aa->counter < aa->choices.size()) {
-            //std::cout << "JJ aa->counter < aa->choices.size()" << std::endl;
             return false;
         }
         aa->counter = 0;
