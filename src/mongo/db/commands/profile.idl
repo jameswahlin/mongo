@@ -49,3 +49,7 @@ commands:
         type: double
         description: "The fraction of eligible ops, in the range [0,1), to be logged/profiled."
         optional: true
+      filter:
+        type: object
+        description: "A query predicate which will be used as an additional filter on the set of entries that are written to the profiler and log."
+        optional: true

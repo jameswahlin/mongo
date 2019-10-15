@@ -66,6 +66,11 @@ bool ProfileCmdBase::run(OperationContext* opCtx,
     auto request = ProfileCmdRequest::parse(IDLParserErrorContext("profile"), cmdObj);
     const auto profilingLevel = request.getCommandParameter();
 
+    if (request.getFilter()) {
+        std::cout << *request.getFilter() << std::endl;
+        TODO = (*request.getFilter()).getOwned();
+    }
+
     // Delegate to _applyProfilingLevel to set the profiling level appropriately whether we are on
     // mongoD or mongoS.
     int oldLevel = _applyProfilingLevel(opCtx, dbName, profilingLevel);
