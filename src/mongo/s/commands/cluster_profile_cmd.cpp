@@ -61,6 +61,13 @@ protected:
         return 0;
     }
 
+    // TODO: Implement to provide filtering support on mongos.
+    BSONObj _applyFilterExpression(OperationContext* opCtx,
+                                   const std::string& dbName,
+                                   BSONObj filterExpression) {
+        MONGO_UNREACHABLE;
+    }
+
 } profileCmd;
 
 }  // namespace
