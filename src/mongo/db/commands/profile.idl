@@ -51,5 +51,5 @@ commands:
         optional: true
       filter:
         type: object
-        description: "A query predicate which will be used as an additional filter on the set of entries that are written to the profiler and log."
+        description: "A query predicate which will be used to filter the set of entries that are written to the profiler and log. When non-empty this supercedes logging based on the slowms setting"
         optional: true

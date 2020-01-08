@@ -66,11 +66,6 @@ bool ProfileCmdBase::run(OperationContext* opCtx,
     auto request = ProfileCmdRequest::parse(IDLParserErrorContext("profile"), cmdObj);
     const auto profilingLevel = request.getCommandParameter();
 
-    if (request.getFilter()) {
-        std::cout << *request.getFilter() << std::endl;
-        TODO = (*request.getFilter()).getOwned();
-    }
-
     // Delegate to _applyProfilingLevel to set the profiling level appropriately whether we are on
     // mongoD or mongoS.
     int oldLevel = _applyProfilingLevel(opCtx, dbName, profilingLevel);
@@ -78,15 +73,22 @@ bool ProfileCmdBase::run(OperationContext* opCtx,
     result.append("was", oldLevel);
     result.append("slowms", serverGlobalParams.slowMS);
     result.append("sampleRate", serverGlobalParams.sampleRate);
+    result.append("filter", serverGlobalParams.filter);
 
     if (auto slowms = request.getSlowms()) {
         serverGlobalParams.slowMS = *slowms;
     }
+
     if (auto sampleRate = request.getSampleRate()) {
         uassert(ErrorCodes::BadValue,
                 "'sampleRate' must be between 0.0 and 1.0 inclusive",
                 *sampleRate >= 0.0 && *sampleRate <= 1.0);
         serverGlobalParams.sampleRate = *sampleRate;
+    }
+
+    if (auto filter = request.getFilter()) {
+        std::cout << *filter << std::endl;
+        serverGlobalParams.filterExpression = (*filter).getOwned();
     }
 
     return true;
