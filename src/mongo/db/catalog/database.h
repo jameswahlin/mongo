@@ -96,6 +96,9 @@ public:
 
     virtual int getProfilingLevel() const = 0;
 
+    virtual void setProfilerFilterExpression(OperationContext* const opCtx, BSONObj matchExpr) = 0;
+    virtual BSONObj getProfilerFilterExpression() const = 0;
+
     virtual const NamespaceString& getProfilingNS() const = 0;
 
     /**

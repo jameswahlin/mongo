@@ -62,6 +62,11 @@ public:
         return _profileName;
     }
 
+    void setProfilerFilterExpression(OperationContext* const opCtx, BSONObj matchExpr) final;
+    BSONObj getProfilerFilterExpression() const {
+        return _profileFilter;
+    }
+
     void setDropPending(OperationContext* opCtx, bool dropPending) final;
 
     bool isDropPending(OperationContext* opCtx) const final;
@@ -174,6 +179,10 @@ private:
     const NamespaceString _viewsName;    // "dbname.system.views"
 
     AtomicWord<int> _profile{0};  // 0=off
+
+    // TODO: Make thread safe.
+    BSONObj _profileFilter;
+    std::unique_ptr<MatchExpression> _profileFilterExpr;
 
     // If '_dropPending' is true, this Database is in the midst of a two-phase drop. No new
     // collections may be created in this Database.

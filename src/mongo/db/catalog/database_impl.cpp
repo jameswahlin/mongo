@@ -227,6 +227,26 @@ Status DatabaseImpl::setProfilingLevel(OperationContext* opCtx, int newLevel) {
     return Status::OK();
 }
 
+void DatabaseImpl::setProfilerFilterExpression(OperationContext* const opCtx, BSONObj matchExpr) {
+    if (matchExpr.isEmpty()) {
+        _profileFilter = BSONObj();
+        _profileFilterExpr.reset();
+        return;
+    }
+
+    BSONObj profileFilter = matchExpr.getOwned();
+
+    boost::intrusive_ptr<ExpressionContext> expCtx(new ExpressionContext(opCtx, nullptr));
+    // The MatchExpression and contained ExpressionContext are owned by the Database and will
+    // outlive the OperationContext they were created under.
+    expCtx->opCtx = nullptr;
+
+    _profileFilterExpr = uassertStatusOK(
+        MatchExpressionParser::parse(profileFilter, expCtx, ExtensionsCallbackNoop()));
+
+    _profileFilter = profileFilter;
+}
+
 void DatabaseImpl::setDropPending(OperationContext* opCtx, bool dropPending) {
     auto mode = dropPending ? MODE_X : MODE_IX;
     invariant(opCtx->lockState()->isDbLockedForMode(name(), mode));

@@ -71,11 +71,18 @@ bool ProfileCmdBase::run(OperationContext* opCtx,
     // Delegate to _applyProfilingLevel to set the profiling level appropriately whether we are on
     // mongoD or mongoS.
     int oldLevel = _applyProfilingLevel(opCtx, dbName, profilingLevel);
+    BSONObj oldFilter;
+
+    if (auto filter = request.getFilter()) {
+        oldFilter = _applyFilterExpression(opCtx, dbName, *filter);
+    }
 
     result.append("was", oldLevel);
     result.append("slowms", serverGlobalParams.slowMS);
     result.append("sampleRate", serverGlobalParams.sampleRate);
-    result.append("filter", serverGlobalParams.filterExpression);
+    if (!oldFilter.isEmpty()) {
+        result.append("filter", oldFilter);
+    }
 
     if (auto slowms = request.getSlowms()) {
         serverGlobalParams.slowMS = *slowms;
@@ -86,18 +93,6 @@ bool ProfileCmdBase::run(OperationContext* opCtx,
                 "'sampleRate' must be between 0.0 and 1.0 inclusive",
                 *sampleRate >= 0.0 && *sampleRate <= 1.0);
         serverGlobalParams.sampleRate = *sampleRate;
-    }
-
-    if (auto filter = request.getFilter()) {
-        // We build the MatchExpression here for validation purposes only.
-        boost::intrusive_ptr<ExpressionContext> expCtx(new ExpressionContext(opCtx, nullptr));
-        // The MatchExpression and contained ExpressionContext created as part of the validator are
-        // owned by the Collection and will outlive the OperationContext they were created under.
-        expCtx->opCtx = nullptr;
-
-        serverGlobalParams.filter = filter->getOwned();
-        serverGlobalParams.filterExpression = uassertStatusOK(MatchExpressionParser::parse(
-            serverGlobalParams.filter, expCtx, ExtensionsCallbackNoop()));
     }
 
     return true;

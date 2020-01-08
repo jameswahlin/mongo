@@ -146,6 +146,17 @@ protected:
         return oldLevel;
     }
 
+    BSONObj _applyFilterExpression(OperationContext* opCtx,
+                                   const std::string& dbName,
+                                   BSONObj filterExpression) {
+        AutoGetDb ctx(opCtx, dbName, MODE_X);
+        Database* db = ctx.getDb();
+        auto previousFilterExpression = db->getProfilerFilterExpression();
+        db->setProfilerFilterExpression(opCtx, filterExpression);
+
+        return previousFilterExpression;
+    }
+
 } cmdProfile;
 
 class CmdFileMD5 : public BasicCommand {

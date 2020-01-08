@@ -73,5 +73,9 @@ protected:
     virtual int _applyProfilingLevel(OperationContext* opCtx,
                                      const std::string& dbName,
                                      int profilingLevel) const = 0;
+
+    virtual BSONObj _applyFilterExpression(OperationContext* opCtx,
+                                           const std::string& dbName,
+                                           BSONObj filterExpression) = 0;
 };
 }  // namespace mongo
