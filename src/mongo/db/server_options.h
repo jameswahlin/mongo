@@ -41,6 +41,8 @@ namespace mongo {
 const int DEFAULT_UNIX_PERMS = 0700;
 constexpr size_t DEFAULT_MAX_CONN = 1000000;
 
+class MatchExpression;
+
 enum class ClusterRole { None, ShardServer, ConfigServer };
 
 struct ServerGlobalParams {
@@ -75,12 +77,13 @@ struct ServerGlobalParams {
 
     // TODO: It is likely that changing any of the following is not thread safe. This is an issue
     // because they can be changed at run time by the profile command.
-    int defaultProfile = 0;    // --profile
-    int slowMS = 100;          // --time in ms that is "slow"
-    double sampleRate = 1.0;   // --samplerate rate at which to sample slow queries
-    BSONObj filterExpression;  // When filterExpression is not empty, this expression will be used
-                               // to decide whether an operation should be logged (or written to the
-                               // system.profile collection when the profiling level is 1)
+    int defaultProfile = 0;   // --profile
+    int slowMS = 100;         // --time in ms that is "slow"
+    double sampleRate = 1.0;  // --samplerate rate at which to sample slow queries
+    BSONObj filter;  // When not empty, this expression will be used to decide whether an operation
+                     // should be logged (or written to the system.profile collection when the
+                     // profiling level is 1)
+    std::unique_ptr<MatchExpression> filterExpression;
 
     int defaultLocalThresholdMillis = 15;  // --localThreshold in ms to consider a node local
     bool moveParanoia = false;             // for move chunk paranoia

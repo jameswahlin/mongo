@@ -32,6 +32,8 @@
 #include "mongo/db/auth/authorization_session.h"
 #include "mongo/db/commands/profile_common.h"
 #include "mongo/db/commands/profile_gen.h"
+#include "mongo/db/matcher/expression_parser.h"
+#include "mongo/db/matcher/extensions_callback_noop.h"
 #include "mongo/idl/idl_parser.h"
 
 namespace mongo {
@@ -73,7 +75,7 @@ bool ProfileCmdBase::run(OperationContext* opCtx,
     result.append("was", oldLevel);
     result.append("slowms", serverGlobalParams.slowMS);
     result.append("sampleRate", serverGlobalParams.sampleRate);
-    result.append("filter", serverGlobalParams.filter);
+    result.append("filter", serverGlobalParams.filterExpression);
 
     if (auto slowms = request.getSlowms()) {
         serverGlobalParams.slowMS = *slowms;
@@ -87,8 +89,15 @@ bool ProfileCmdBase::run(OperationContext* opCtx,
     }
 
     if (auto filter = request.getFilter()) {
-        std::cout << *filter << std::endl;
-        serverGlobalParams.filterExpression = (*filter).getOwned();
+        // We build the MatchExpression here for validation purposes only.
+        boost::intrusive_ptr<ExpressionContext> expCtx(new ExpressionContext(opCtx, nullptr));
+        // The MatchExpression and contained ExpressionContext created as part of the validator are
+        // owned by the Collection and will outlive the OperationContext they were created under.
+        expCtx->opCtx = nullptr;
+
+        serverGlobalParams.filter = filter->getOwned();
+        serverGlobalParams.filterExpression = uassertStatusOK(MatchExpressionParser::parse(
+            serverGlobalParams.filter, expCtx, ExtensionsCallbackNoop()));
     }
 
     return true;
