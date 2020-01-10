@@ -386,6 +386,11 @@ public:
         return _ns;
     }
 
+    // TODO:
+    bool meetsFilterCriteria() {
+        return elapsedTimeExcludingPauses() >= Milliseconds{serverGlobalParams.slowMS};
+    }
+
     /**
      * Returns true if the elapsed time of this operation is such that it should be profiled or
      * profile level is set to 2. Uses total time if the operation is done, current elapsed time
@@ -400,7 +405,7 @@ public:
         if (!shouldSample || _dbprofile <= 0)
             return false;
 
-        return elapsedTimeExcludingPauses() >= Milliseconds{serverGlobalParams.slowMS};
+        return meetsFilterCriteria();
     }
 
     /**
