@@ -93,29 +93,43 @@ Status canonicalizeMongosOptions(moe::Environment* params) {
     return Status::OK();
 }
 
-Status storeMongosOptions(const moe::Environment& params) {
-    Status ret = storeServerOptions(params);
+Status storeMongosOptions(moe::Environment* params) {
+    Status ret = storeServerOptions(*params);
     if (!ret.isOK()) {
         return ret;
     }
 
-    if (params.count("net.port")) {
-        int port = params["net.port"].as<int>();
+    if (params->count("net.port")) {
+        int port = (*params)["net.port"].as<int>();
         if (port <= 0 || port > 65535) {
             return Status(ErrorCodes::BadValue, "error: port number must be between 1 and 65535");
         }
     }
 
-    if (params.count("noscripting") || params.count("security.javascriptEnabled")) {
-        warning() << "The Javascript enabled/disabled options are not supported for mongos. "
-                     "(\"noscripting\" and/or \"security.javascriptEnabled\" are set.)";
+    // "security.javascriptEnabled" comes from the config file, so override it if "noscripting"
+    // is set since that comes from the command line.
+    if (params->count("noscripting")) {
+        auto status = params->set("security.javascriptEnabled",
+                                  moe::Value(!(*params)["noscripting"].as<bool>()));
+        if (!status.isOK()) {
+            return status;
+        }
+
+        status = params->remove("noscripting");
+        if (!status.isOK()) {
+            return status;
+        }
     }
 
-    if (!params.count("sharding.configDB")) {
+    if (params->count("security.javascriptEnabled")) {
+        mongosGlobalParams.scriptingEnabled = (*params)["security.javascriptEnabled"].as<bool>();
+    }
+
+    if (!params->count("sharding.configDB")) {
         return Status(ErrorCodes::BadValue, "error: no args for --configdb");
     }
 
-    std::string configdbString = params["sharding.configDB"].as<std::string>();
+    std::string configdbString = (*params)["sharding.configDB"].as<std::string>();
 
     auto configdbConnectionString = ConnectionString::parse(configdbString);
     if (!configdbConnectionString.isOK()) {
