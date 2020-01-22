@@ -375,8 +375,8 @@ boost::intrusive_ptr<ExpressionContext> makeExpressionContext(
     expCtx->inMultiDocumentTransaction = opCtx->inMultiDocumentTransaction();
 
     if (request.getRuntimeConstants()->getIsMapReduce()) {
-        // mapReduce command JavaScript invocation is not subject to the aggregation heap size
-        // limit.
+        // mapReduce command JavaScript invocation is only subject to the server global
+        // 'jsHeapLimitMB' limit.
         expCtx->jsHeapLimitMB = boost::none;
     }
 

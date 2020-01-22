@@ -186,7 +186,7 @@ RuntimeConstants Variables::getRuntimeConstants() const {
     if (auto it = _runtimeConstants.find(kJsScopeId); it != _runtimeConstants.end()) {
         constants.setJsScope(it->second.getDocument().toBson());
     }
-    if (auto it = _runtimeConstants.find(kIsMapReduce); it != _runtimeConstants.end()) {
+    if (auto it = _runtimeConstants.find(kIsMapReduceId); it != _runtimeConstants.end()) {
         constants.setIsMapReduce(it->second.getBool());
     }
 
@@ -207,7 +207,7 @@ void Variables::setRuntimeConstants(const RuntimeConstants& constants) {
     }
 
     if (constants.getIsMapReduce()) {
-        _runtimeConstants[kIsMapReduce] = Value(constants.getIsMapReduce().get());
+        _runtimeConstants[kIsMapReduceId] = Value(constants.getIsMapReduce().get());
     }
 }
 
