@@ -37,10 +37,13 @@ namespace {
 const auto getExec = OperationContext::declareDecoration<std::unique_ptr<JsExecution>>();
 }  // namespace
 
-JsExecution* JsExecution::get(OperationContext* opCtx, const BSONObj& scope, StringData database) {
+JsExecution* JsExecution::get(OperationContext* opCtx,
+                              const BSONObj& scope,
+                              StringData database,
+                              boost::optional<int> jsHeapLimitMB) {
     auto& exec = getExec(opCtx);
     if (!exec) {
-        exec = std::make_unique<JsExecution>(scope);
+        exec = std::make_unique<JsExecution>(scope, jsHeapLimitMB);
         exec->getScope()->setLocalDB(database);
         exec->getScope()->loadStored(opCtx, true);
     }

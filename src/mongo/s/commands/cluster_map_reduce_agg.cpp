@@ -83,6 +83,8 @@ auto makeExpressionContext(OperationContext* opCtx,
         resolvedNamespaces.try_emplace(outNss.coll(), outNss, std::vector<BSONObj>{});
     }
     auto runtimeConstants = Variables::generateRuntimeConstants(opCtx);
+    runtimeConstants.setIsMapReduce(true);
+
     if (parsedMr.getScope()) {
         runtimeConstants.setJsScope(parsedMr.getScope()->getObj());
     }

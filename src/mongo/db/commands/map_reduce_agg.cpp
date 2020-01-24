@@ -96,6 +96,10 @@ auto makeExpressionContext(OperationContext* opCtx,
         StringMap<ExpressionContext::ResolvedNamespace>{},  // resolvedNamespaces
         uuid);
     expCtx->tempDir = storageGlobalParams.dbpath + "/_tmp";
+
+    // mapReduce command JavaScript invocation is only subject to the server global 'jsHeapLimitMB'
+    // limit.
+    expCtx->jsHeapLimitMB = boost::none;
     return expCtx;
 }
 

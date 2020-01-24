@@ -245,7 +245,7 @@ public:
                 getGlobalScriptEngine());
         RuntimeConstants runtimeConstants = getRuntimeConstants();
         const boost::optional<mongo::BSONObj>& scope = runtimeConstants.getJsScope();
-        return JsExecution::get(opCtx, scope.get_value_or(BSONObj()), ns.db());
+        return JsExecution::get(opCtx, scope.get_value_or(BSONObj()), ns.db(), jsHeapLimitMB);
     }
 
     // The explain verbosity requested by the user, or boost::none if no explain was requested.
@@ -266,6 +266,11 @@ public:
     std::string tempDir;  // Defaults to empty to prevent external sorting in mongos.
 
     OperationContext* opCtx;
+
+    // When set restricts the global JavaScript heap size limit for any Scope returned by
+    // getJsExecWithScope(). This limit is ignored if larger than the global limit dictated by the
+    // 'jsHeapLimitMB' server parameter.
+    boost::optional<int> jsHeapLimitMB = 100;
 
     // An interface for accessing information or performing operations that have different
     // implementations on mongod and mongos, or that only make sense on one of the two.
