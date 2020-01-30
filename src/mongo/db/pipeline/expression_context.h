@@ -49,6 +49,7 @@
 #include "mongo/db/query/collation/collator_interface.h"
 #include "mongo/db/query/datetime/date_time_support.h"
 #include "mongo/db/query/explain_options.h"
+#include "mongo/db/query/query_knobs_gen.h"
 #include "mongo/db/query/tailable_mode.h"
 #include "mongo/db/server_options.h"
 #include "mongo/util/intrusive_counter.h"
@@ -270,7 +271,7 @@ public:
     // When set restricts the global JavaScript heap size limit for any Scope returned by
     // getJsExecWithScope(). This limit is ignored if larger than the global limit dictated by the
     // 'jsHeapLimitMB' server parameter.
-    boost::optional<int> jsHeapLimitMB = 100;
+    boost::optional<int> jsHeapLimitMB = internalQueryJavaScriptHeapSizeLimitMB.load();
 
     // An interface for accessing information or performing operations that have different
     // implementations on mongod and mongos, or that only make sense on one of the two.

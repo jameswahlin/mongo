@@ -374,7 +374,7 @@ boost::intrusive_ptr<ExpressionContext> makeExpressionContext(
     expCtx->tempDir = storageGlobalParams.dbpath + "/_tmp";
     expCtx->inMultiDocumentTransaction = opCtx->inMultiDocumentTransaction();
 
-    if (request.getRuntimeConstants()->getIsMapReduce()) {
+    if (request.getRuntimeConstants() && request.getRuntimeConstants()->getIsMapReduce()) {
         // mapReduce command JavaScript invocation is only subject to the server global
         // 'jsHeapLimitMB' limit.
         expCtx->jsHeapLimitMB = boost::none;

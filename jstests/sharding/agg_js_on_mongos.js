@@ -19,6 +19,7 @@ for (let i = 0; i < 100; ++i) {
 }
 assert.commandWorked(bulk.execute());
 
+// TODO JHW: group with internal accumulator.
 const pipeline = [
     {$group: {_id: "$x"}},
     {
@@ -41,6 +42,7 @@ assert.commandWorked(testDB.runCommand({aggregate: 'coll', pipeline: pipeline, c
 
 // Confirm that the same pipeline fails when Javascript has been disabled on mongos.
 st.restartMongos(0, {"noscripting": '', "restart": true});
+// 'testDB' and 'coll' are no longer valid after mongos restart and must be reassigned.
 testDB = st.s.getDB("test");
 coll = testDB.coll;
 
