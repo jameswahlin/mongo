@@ -352,6 +352,10 @@ bool QueryPlannerIXSelect::compatible(const BSONElement& elt,
         MONGO_UNREACHABLE;
         return true;
     } else if (IndexNames::HASHED == indexedFieldType) {
+        if (index.sparse && !nodeIsSupportedBySparseIndex(node, isChildOfElemMatchValue)) {
+            return false;
+        }
+
         if (ComparisonMatchExpressionBase::isEquality(exprtype)) {
             return true;
         }
@@ -416,6 +420,78 @@ bool QueryPlannerIXSelect::compatible(const BSONElement& elt,
                   << elt.toString();
         verify(0);
     }
+}
+
+bool QueryPlannerIXSelect::nodeIsSupportedBySparseIndex(const MatchExpression* queryExpr,
+                                                        bool isInElemMatch) {
+    // The only types of queries which may not be supported by a sparse index are ones which have
+    // an equality to null (or an {$exists: false}), because of the language's "null or missing"
+    // semantics. {$exists: false} gets translated into a negation query (which a sparse index
+    // cannot answer), so this function only needs to check if the query performs an equality to
+    // null.
+
+    // Otherwise, we can't use a sparse index for $eq (or $lte, or $gte) with a null element.
+    //
+    // We can use a sparse index for $_internalExprEq with a null element. Expression language
+    // equality-to-null semantics are that only literal nulls match. Sparse indexes contain
+    // index keys for literal nulls, but not for missing elements.
+    const auto typ = queryExpr->matchType();
+    if (typ == MatchExpression::EQ) {
+        const auto* queryExprEquality = static_cast<const EqualityMatchExpression*>(queryExpr);
+        // Equality to null inside an $elemMatch implies a match on literal 'null'.
+        return isInElemMatch || !queryExprEquality->getData().isNull();
+    } else if (queryExpr->matchType() == MatchExpression::MATCH_IN) {
+        const auto* queryExprIn = static_cast<const InMatchExpression*>(queryExpr);
+        // Equality to null inside an $elemMatch implies a match on literal 'null'.
+        return isInElemMatch || !queryExprIn->hasNull();
+    } else if (queryExpr->matchType() == MatchExpression::NOT) {
+        const auto* child = queryExpr->getChild(0);
+        const MatchExpression::MatchType childtype = child->matchType();
+        const bool isNotEqualsNull =
+            (childtype == MatchExpression::EQ &&
+             static_cast<const ComparisonMatchExpression*>(child)->getData().type() ==
+                 BSONType::jstNULL);
+
+        // Prevent negated predicates from using sparse indices. Doing so would cause us to
+        // miss documents which do not contain the indexed fields. The only case where we may
+        // use a sparse index for a negation is when the query is {$ne: null}. This is due to
+        // the behavior of {$eq: null} matching documents where the field does not exist OR the
+        // field is equal to literal null. The negation of {$eq: null} therefore matches
+        // documents where the field does exist AND the field is not equal to literal
+        // null. Since the field must exist, it is safe to use a sparse index.
+        if (!isNotEqualsNull) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool QueryPlannerIXSelect::logicalNodeMayBeSupportedByAnIndex(const MatchExpression* queryExpr) {
+    return !(queryExpr->matchType() == MatchExpression::NOT &&
+             isEqualsArrayOrNotInArray(queryExpr->getChild(0)));
+}
+
+bool QueryPlannerIXSelect::nodeIsSupportedByWildcardIndex(const MatchExpression* queryExpr) {
+    // Wildcard indexes only store index keys for "leaf" nodes in an object. That is, they do not
+    // store keys for nested objects, meaning that any kind of comparison to an object or array
+    // cannot be answered by the index (including with a $in).
+
+    if (ComparisonMatchExpression::isComparisonMatchExpression(queryExpr)) {
+        const ComparisonMatchExpression* cmpExpr =
+            static_cast<const ComparisonMatchExpression*>(queryExpr);
+
+        return canUseWildcardIndex(cmpExpr->getData(), cmpExpr->matchType());
+    } else if (queryExpr->matchType() == MatchExpression::MATCH_IN) {
+        const auto* queryExprIn = static_cast<const InMatchExpression*>(queryExpr);
+
+        return std::all_of(
+            queryExprIn->getEqualities().begin(),
+            queryExprIn->getEqualities().end(),
+            [](const BSONElement& elt) { return canUseWildcardIndex(elt, MatchExpression::EQ); });
+    }
+
+    return true;
 }
 
 // static

@@ -1133,6 +1133,350 @@ TEST(QueryPlannerIXSelectTest, InternalExprEqCanUseSparseIndexWithComparisonToNo
         "{a: {$_internalExprEq: 1}}", "", kSimpleCollator, indices, "a", expectedIndices);
 }
 
+TEST(QueryPlannerIXSelectTest, NotEqualsNullCanUseIndex) {
+    auto entry = buildSimpleIndexEntry(BSON("a" << 1));
+    std::set<size_t> expectedIndices = {0};
+    testRateIndices("{a: {$ne: null}}", "", kSimpleCollator, {entry}, "a,a", expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, NotEqualsNullCannotUseMultiKeyIndex) {
+    auto entry = buildSimpleIndexEntry(BSON("a" << 1));
+    entry.multikey = true;
+    std::set<size_t> expectedIndices = {};
+    testRateIndices("{a: {$ne: null}}", "", kSimpleCollator, {entry}, "a,a", expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, NotEqualsNullCannotUseDottedMultiKeyIndex) {
+    auto entry = buildSimpleIndexEntry(BSON("a.b" << 1));
+    entry.multikeyPaths = {{0}};
+    std::set<size_t> expectedIndices = {};
+    testRateIndices(
+        "{'a.b': {$ne: null}}", "", kSimpleCollator, {entry}, "a.b,a.b", expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, NotEqualsNullCanUseIndexWhichIsMultiKeyOnAnotherPath) {
+    auto entry = buildSimpleIndexEntry(BSON("a" << 1 << "mk" << 1));
+    entry.multikeyPaths = {{}, {0}};
+    std::set<size_t> expectedIndices = {0};
+    testRateIndices("{a: {$ne: null}}", "", kSimpleCollator, {entry}, "a,a", expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, ElemMatchValueWithNotEqualsNullCanUseIndex) {
+    auto entry = buildSimpleIndexEntry(BSON("a" << 1));
+    std::set<size_t> expectedIndices = {0};
+    testRateIndices(
+        "{a: {$elemMatch: {$ne: null}}}", "", kSimpleCollator, {entry}, "a", expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, ElemMatchValueWithNotEqualsNullCanUseMultiKeyIndex) {
+    auto entry = buildSimpleIndexEntry(BSON("a" << 1));
+    entry.multikey = true;
+    std::set<size_t> expectedIndices = {0};
+    testRateIndices(
+        "{a: {$elemMatch: {$ne: null}}}", "", kSimpleCollator, {entry}, "a", expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, ElemMatchObjectWithNotEqualNullCanUseIndex) {
+    auto entry = buildSimpleIndexEntry(BSON("a.b" << 1));
+    std::set<size_t> expectedIndices = {0};
+    testRateIndices("{a: {$elemMatch: {b: {$ne: null}}}}",
+                    "",
+                    kSimpleCollator,
+                    {entry},
+                    "a.b,a.b",
+                    expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, ElemMatchObjectWithNotEqualNullCannotUseOldMultiKeyIndex) {
+    auto entry = buildSimpleIndexEntry(BSON("a.b" << 1));
+    entry.multikey = true;
+    std::set<size_t> expectedIndices = {};
+    testRateIndices("{a: {$elemMatch: {b: {$ne: null}}}}",
+                    "",
+                    kSimpleCollator,
+                    {entry},
+                    "a.b,a.b",
+                    expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, ElemMatchObjectWithNotEqualNullCanUseIndexMultikeyOnPrefix) {
+    auto entry = buildSimpleIndexEntry(BSON("a.b.c.d" << 1));
+    entry.multikeyPaths = {{0U}};
+    std::set<size_t> expectedIndices = {0U};
+    const auto query = "{'a.b': {$elemMatch: {'c.d': {$ne: null}}}}";
+    testRateIndices(query, "", kSimpleCollator, {entry}, "a.b.c.d,a.b.c.d", expectedIndices);
+
+    entry.multikeyPaths = {{1U}};
+    testRateIndices(query, "", kSimpleCollator, {entry}, "a.b.c.d,a.b.c.d", expectedIndices);
+
+    entry.multikeyPaths = {{2U}};
+    expectedIndices = {};
+    testRateIndices(query, "", kSimpleCollator, {entry}, "a.b.c.d,a.b.c.d", expectedIndices);
+
+    entry.multikeyPaths = {{3U}};
+    expectedIndices = {};
+    testRateIndices(query, "", kSimpleCollator, {entry}, "a.b.c.d,a.b.c.d", expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest,
+     NestedElemMatchObjectWithNotEqualNullCanUseIndexMultikeyOnAnyPrefix) {
+    auto entry = buildSimpleIndexEntry(BSON("a.b.c.d" << 1));
+    entry.multikeyPaths = {{0U}};
+    std::set<size_t> expectedIndices = {0U};
+    const auto query = "{a: {$elemMatch: {b: {$elemMatch: {'c.d': {$ne: null}}}}}}";
+    testRateIndices(query, "", kSimpleCollator, {entry}, "a.b.c.d,a.b.c.d", expectedIndices);
+
+    entry.multikeyPaths = {{1U}};
+    testRateIndices(query, "", kSimpleCollator, {entry}, "a.b.c.d,a.b.c.d", expectedIndices);
+
+    entry.multikeyPaths = {{2U}};
+    expectedIndices = {};
+    testRateIndices(query, "", kSimpleCollator, {entry}, "a.b.c.d,a.b.c.d", expectedIndices);
+
+    entry.multikeyPaths = {{3U}};
+    expectedIndices = {};
+    testRateIndices(query, "", kSimpleCollator, {entry}, "a.b.c.d,a.b.c.d", expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, HashedIndexShouldNotBeRelevantForNotPredicate) {
+    auto entry = buildSimpleIndexEntry(BSON("a"
+                                            << "hashed"));
+    entry.type = IndexType::INDEX_HASHED;
+    std::set<size_t> expectedIndices = {};
+    testRateIndices("{a: {$ne: 4}}", "", kSimpleCollator, {entry}, "a,a", expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, HashedIndexShouldNotBeRelevantForNotEqualsNullPredicate) {
+    auto entry = buildSimpleIndexEntry(BSON("a"
+                                            << "hashed"));
+    entry.type = IndexType::INDEX_HASHED;
+    std::set<size_t> expectedIndices = {};
+    testRateIndices("{a: {$ne: null}}", "", kSimpleCollator, {entry}, "a,a", expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, HashedSparseIndexShouldNotBeRelevantForNotEqualsNullPredicate) {
+    auto entry = buildSimpleIndexEntry(BSON("a"
+                                            << "hashed"));
+    entry.type = IndexType::INDEX_HASHED;
+    entry.sparse = true;
+    std::set<size_t> expectedIndices = {};
+    testRateIndices("{a: {$ne: null}}", "", kSimpleCollator, {entry}, "a,a", expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, HashedSparseIndexShouldNotBeRelevantForEqualsNull) {
+    auto entry = buildSimpleIndexEntry(BSON("a"
+                                            << "hashed"));
+    entry.type = IndexType::INDEX_HASHED;
+    entry.sparse = true;
+    std::set<size_t> expectedIndices = {};
+    testRateIndices("{a: {$eq: null}}", "", kSimpleCollator, {entry}, "a", expectedIndices);
+}
+
+TEST(QueryPlannerIXSelectTest, HashedSparseIndexShouldNotBeRelevantForInWithNull) {
+    auto entry = buildSimpleIndexEntry(BSON("a"
+                                            << "hashed"));
+    entry.type = IndexType::INDEX_HASHED;
+    entry.sparse = true;
+    std::set<size_t> expectedIndices = {};
+    // A non-null value must be included as well to prevent rewrite to {$eq: null}.
+    testRateIndices("{a: {$in: [1, null]}}", "", kSimpleCollator, {entry}, "a", expectedIndices);
+}
+
+/*
+ * Will compare 'keyPatterns' with 'entries'. As part of comparing, it will sort both of them.
+ */
+bool indexEntryKeyPatternsMatch(vector<BSONObj>* keyPatterns, vector<IndexEntry>* entries) {
+    ASSERT_EQ(entries->size(), keyPatterns->size());
+
+    const auto cmpFn = [](const IndexEntry& a, const IndexEntry& b) {
+        return SimpleBSONObjComparator::kInstance.evaluate(a.keyPattern < b.keyPattern);
+    };
+
+    std::sort(entries->begin(), entries->end(), cmpFn);
+    std::sort(keyPatterns->begin(), keyPatterns->end(), [](const BSONObj& a, const BSONObj& b) {
+        return SimpleBSONObjComparator::kInstance.evaluate(a < b);
+    });
+
+    return std::equal(keyPatterns->begin(),
+                      keyPatterns->end(),
+                      entries->begin(),
+                      [](const BSONObj& keyPattern, const IndexEntry& ie) -> bool {
+                          return SimpleBSONObjComparator::kInstance.evaluate(keyPattern ==
+                                                                             ie.keyPattern);
+                      });
+}
+
+TEST(QueryPlannerIXSelectTest, ExpandWildcardIndices) {
+    const auto indexEntry = makeIndexEntry(BSON("$**" << 1), {});
+
+    // Case where no fields are specified.
+    std::vector<IndexEntry> result =
+        QueryPlannerIXSelect::expandIndexes(stdx::unordered_set<string>(), {indexEntry.first});
+    ASSERT_TRUE(result.empty());
+
+    stdx::unordered_set<string> fields = {"fieldA", "fieldB"};
+
+    result = QueryPlannerIXSelect::expandIndexes(fields, {indexEntry.first});
+    std::vector<BSONObj> expectedKeyPatterns = {BSON("fieldA" << 1), BSON("fieldB" << 1)};
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+
+    const auto wildcardIndexWithSubpath = makeIndexEntry(BSON("a.b.$**" << 1), {});
+    fields = {"a.b", "a.b.c", "a.d"};
+    result = QueryPlannerIXSelect::expandIndexes(fields, {wildcardIndexWithSubpath.first});
+    expectedKeyPatterns = {BSON("a.b" << 1), BSON("a.b.c" << 1)};
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+}
+
+TEST(QueryPlannerIXSelectTest, ExpandWildcardIndicesInPresenceOfOtherIndices) {
+    auto wildcardIndexEntry = makeIndexEntry(BSON("$**" << 1), {});
+    auto aIndexEntry = makeIndexEntry(BSON("fieldA" << 1), {});
+    auto bIndexEntry = makeIndexEntry(BSON("fieldB" << 1), {});
+    auto abIndexEntry = makeIndexEntry(BSON("fieldA" << 1 << "fieldB" << 1), {});
+
+    const stdx::unordered_set<string> fields = {"fieldA", "fieldB", "fieldC"};
+    std::vector<BSONObj> expectedKeyPatterns = {
+        BSON("fieldA" << 1), BSON("fieldA" << 1), BSON("fieldB" << 1), BSON("fieldC" << 1)};
+
+    auto result =
+        QueryPlannerIXSelect::expandIndexes(fields, {aIndexEntry.first, wildcardIndexEntry.first});
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+    result.clear();
+
+    expectedKeyPatterns = {
+        BSON("fieldB" << 1), BSON("fieldA" << 1), BSON("fieldB" << 1), BSON("fieldC" << 1)};
+    result =
+        QueryPlannerIXSelect::expandIndexes(fields, {bIndexEntry.first, wildcardIndexEntry.first});
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+    result.clear();
+
+    result = QueryPlannerIXSelect::expandIndexes(
+        fields, {aIndexEntry.first, wildcardIndexEntry.first, bIndexEntry.first});
+    expectedKeyPatterns = {BSON("fieldA" << 1),
+                           BSON("fieldA" << 1),
+                           BSON("fieldB" << 1),
+                           BSON("fieldC" << 1),
+                           BSON("fieldB" << 1)};
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+    result.clear();
+
+    result =
+        QueryPlannerIXSelect::expandIndexes(fields, {wildcardIndexEntry.first, abIndexEntry.first});
+    expectedKeyPatterns = {BSON("fieldA" << 1),
+                           BSON("fieldB" << 1),
+                           BSON("fieldC" << 1),
+                           BSON("fieldA" << 1 << "fieldB" << 1)};
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+}
+
+TEST(QueryPlannerIXSelectTest, ExpandedIndexEntriesAreCorrectlyMarkedAsMultikeyOrNonMultikey) {
+    auto wildcardIndexEntry = makeIndexEntry(BSON("$**" << 1), {}, {FieldRef{"a"}});
+    const stdx::unordered_set<string> fields = {"a.b", "c.d"};
+    std::vector<BSONObj> expectedKeyPatterns = {BSON("a.b" << 1), BSON("c.d" << 1)};
+
+    auto result = QueryPlannerIXSelect::expandIndexes(fields, {wildcardIndexEntry.first});
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+
+    for (auto&& entry : result) {
+        ASSERT_TRUE(entry.multikeyPathSet.empty());
+        ASSERT_EQ(entry.multikeyPaths.size(), 1u);
+
+        if (SimpleBSONObjComparator::kInstance.evaluate(entry.keyPattern == BSON("a.b" << 1))) {
+            ASSERT_TRUE(entry.multikey);
+            ASSERT(entry.multikeyPaths[0] == std::set<std::size_t>{0u});
+        } else {
+            ASSERT_BSONOBJ_EQ(entry.keyPattern, BSON("c.d" << 1));
+            ASSERT_FALSE(entry.multikey);
+            ASSERT_TRUE(entry.multikeyPaths[0].empty());
+        }
+    }
+}
+
+TEST(QueryPlannerIXSelectTest, WildcardIndexExpansionExcludesIdField) {
+    const auto indexEntry = makeIndexEntry(BSON("$**" << 1), {});
+
+    stdx::unordered_set<string> fields = {"_id", "abc", "def"};
+
+    std::vector<IndexEntry> result =
+        QueryPlannerIXSelect::expandIndexes(fields, {indexEntry.first});
+    std::vector<BSONObj> expectedKeyPatterns = {BSON("abc" << 1), BSON("def" << 1)};
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+}
+
+TEST(QueryPlannerIXSelectTest, WildcardIndicesExpandedEntryHasCorrectProperties) {
+    auto wildcardIndexEntry = makeIndexEntry(BSON("$**" << 1), {});
+    wildcardIndexEntry.first.identifier = IndexEntry::Identifier("someIndex");
+
+    stdx::unordered_set<string> fields = {"abc", "def"};
+
+    std::vector<IndexEntry> result =
+        QueryPlannerIXSelect::expandIndexes(fields, {wildcardIndexEntry.first});
+    std::vector<BSONObj> expectedKeyPatterns = {BSON("abc" << 1), BSON("def" << 1)};
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+
+    for (auto&& ie : result) {
+        // A $** index entry is only multikey if it has a non-empty 'multikeyPathSet'. No such
+        // multikey path set has been supplied by this test.
+        ASSERT_FALSE(ie.multikey);
+        ASSERT_TRUE(ie.multikeyPathSet.empty());
+        ASSERT_EQ(ie.multikeyPaths.size(), 1u);
+        ASSERT_TRUE(ie.multikeyPaths[0].empty());
+
+        // Wildcard indices are always sparse.
+        ASSERT_TRUE(ie.sparse);
+
+        // Wildcard indexes are never unique.
+        ASSERT_FALSE(ie.unique);
+
+        ASSERT_EQ(ie.identifier,
+                  IndexEntry::Identifier(wildcardIndexEntry.first.identifier.catalogName,
+                                         ie.keyPattern.firstElementFieldName()));
+    }
+}
+
+TEST(QueryPlannerIXSelectTest, WildcardIndicesExcludeNonMatchingKeySubpath) {
+    auto wildcardIndexEntry = makeIndexEntry(BSON("subpath.$**" << 1), {});
+
+    stdx::unordered_set<string> fields = {"abc", "def", "subpath.abc", "subpath.def", "subpath"};
+
+    std::vector<IndexEntry> result =
+        QueryPlannerIXSelect::expandIndexes(fields, {wildcardIndexEntry.first});
+    std::vector<BSONObj> expectedKeyPatterns = {
+        BSON("subpath.abc" << 1), BSON("subpath.def" << 1), BSON("subpath" << 1)};
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+}
+
+TEST(QueryPlannerIXSelectTest, WildcardIndicesExcludeNonMatchingPathsWithInclusionProjection) {
+    auto wildcardIndexEntry =
+        makeIndexEntry(BSON("$**" << 1),
+                       {},
+                       {},
+                       BSON("wildcardProjection" << BSON("abc" << 1 << "subpath.abc" << 1)));
+
+    stdx::unordered_set<string> fields = {"abc", "def", "subpath.abc", "subpath.def", "subpath"};
+
+    std::vector<IndexEntry> result =
+        QueryPlannerIXSelect::expandIndexes(fields, {wildcardIndexEntry.first});
+    std::vector<BSONObj> expectedKeyPatterns = {BSON("abc" << 1), BSON("subpath.abc" << 1)};
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+}
+
+TEST(QueryPlannerIXSelectTest, WildcardIndicesExcludeNonMatchingPathsWithExclusionProjection) {
+    auto wildcardIndexEntry =
+        makeIndexEntry(BSON("$**" << 1),
+                       {},
+                       {},
+                       BSON("wildcardProjection" << BSON("abc" << 0 << "subpath.abc" << 0)));
+
+    stdx::unordered_set<string> fields = {"abc", "def", "subpath.abc", "subpath.def", "subpath"};
+
+    std::vector<IndexEntry> result =
+        QueryPlannerIXSelect::expandIndexes(fields, {wildcardIndexEntry.first});
+    std::vector<BSONObj> expectedKeyPatterns = {
+        BSON("def" << 1), BSON("subpath.def" << 1), BSON("subpath" << 1)};
+    ASSERT_TRUE(indexEntryKeyPatternsMatch(&expectedKeyPatterns, &result));
+}
+
 TEST(QueryPlannerIXSelectTest, IndexedFieldHasMultikeyComponents) {
     auto indexEntry = makeIndexEntry(BSON("a" << 1 << "b.c" << 1), {{}, {}});
     ASSERT_FALSE(QueryPlannerIXSelect::indexedFieldHasMultikeyComponents("a"_sd, indexEntry));
