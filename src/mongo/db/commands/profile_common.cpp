@@ -27,6 +27,7 @@
  *    exception statement from all source files in the program, then also delete
  *    it in the license file.
  */
+#define MONGO_LOG_DEFAULT_COMPONENT ::mongo::logger::LogComponent::kCommand
 
 #include "mongo/platform/basic.h"
 
@@ -83,6 +84,24 @@ bool ProfileCmdBase::run(OperationContext* opCtx,
                 "'sampleRate' must be between 0.0 and 1.0 inclusive",
                 *sampleRate >= 0.0 && *sampleRate <= 1.0);
         serverGlobalParams.sampleRate = *sampleRate;
+    }
+
+    // Log the change made to server's profiling settings, unless the request was to get the current
+    // value.
+    if (profilingLevel != -1) {
+        BSONObjBuilder oldState;
+        BSONObjBuilder newState;
+
+        oldState.append("level"_sd, oldLevel);
+        oldState.append("slowms"_sd, oldSlowMS);
+        oldState.append("sampleRate"_sd, oldSampleRate);
+
+        newState.append("level"_sd, profilingLevel);
+        newState.append("slowms"_sd, serverGlobalParams.slowMS);
+        newState.append("sampleRate"_sd, serverGlobalParams.sampleRate);
+
+        LOG(0) << "{msg: \"Profiler settings changed\", from:" << oldState.obj()
+               << ", to:" << newState.obj() << "}";
     }
 
     return true;
