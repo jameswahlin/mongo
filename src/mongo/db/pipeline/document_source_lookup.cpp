@@ -46,6 +46,7 @@
 #include "mongo/db/pipeline/expression.h"
 #include "mongo/db/pipeline/expression_context.h"
 #include "mongo/db/pipeline/variable_validation.h"
+#include "mongo/db/query/collation/collator_factory_interface.h"
 #include "mongo/db/query/query_knobs_gen.h"
 #include "mongo/platform/overflow_arithmetic.h"
 #include "mongo/util/fail_point.h"
@@ -149,9 +150,11 @@ bool checkModifiedPathsSortReorder(const SortPattern& sortPattern,
 
 }  // namespace
 
-DocumentSourceLookUp::DocumentSourceLookUp(NamespaceString fromNs,
-                                           std::string as,
-                                           const boost::intrusive_ptr<ExpressionContext>& expCtx)
+DocumentSourceLookUp::DocumentSourceLookUp(
+    NamespaceString fromNs,
+    std::string as,
+    boost::optional<std::unique_ptr<CollatorInterface>> fromCollator,
+    const boost::intrusive_ptr<ExpressionContext>& expCtx)
     : DocumentSource(kStageName, expCtx),
       _fromNs(std::move(fromNs)),
       _as(std::move(as)),
@@ -161,14 +164,19 @@ DocumentSourceLookUp::DocumentSourceLookUp(NamespaceString fromNs,
     _resolvedNs = resolvedNamespace.ns;
     _resolvedPipeline = resolvedNamespace.pipeline;
     _fromExpCtx = expCtx->copyForSubPipeline(resolvedNamespace.ns);
+    if (fromCollator) {
+        _fromExpCtx->setCollator(std::move(fromCollator.get()));
+    }
 }
 
-DocumentSourceLookUp::DocumentSourceLookUp(NamespaceString fromNs,
-                                           std::string as,
-                                           std::string localField,
-                                           std::string foreignField,
-                                           const boost::intrusive_ptr<ExpressionContext>& expCtx)
-    : DocumentSourceLookUp(fromNs, as, expCtx) {
+DocumentSourceLookUp::DocumentSourceLookUp(
+    NamespaceString fromNs,
+    std::string as,
+    std::string localField,
+    std::string foreignField,
+    boost::optional<std::unique_ptr<CollatorInterface>> fromCollator,
+    const boost::intrusive_ptr<ExpressionContext>& expCtx)
+    : DocumentSourceLookUp(fromNs, as, std::move(fromCollator), expCtx) {
     _localField = std::move(localField);
     _foreignField = std::move(foreignField);
 
@@ -186,9 +194,10 @@ DocumentSourceLookUp::DocumentSourceLookUp(
     std::string as,
     std::vector<BSONObj> pipeline,
     BSONObj letVariables,
+    boost::optional<std::unique_ptr<CollatorInterface>> fromCollator,
     boost::optional<std::pair<std::string, std::string>> localForeignFields,
     const boost::intrusive_ptr<ExpressionContext>& expCtx)
-    : DocumentSourceLookUp(fromNs, as, expCtx) {
+    : DocumentSourceLookUp(fromNs, as, std::move(fromCollator), expCtx) {
     // '_resolvedPipeline' will first be initialized by the constructor delegated to within this
     // constructor's initializer list. It will be populated with view pipeline prefix if 'fromNs'
     // represents a view. We will then append stages to ensure any view prefix is not overwritten.
@@ -471,6 +480,7 @@ Pipeline::SourceContainer::iterator DocumentSourceLookUp::doOptimizeAt(
     }
 
     // If the following stage is $sort, consider pushing it ahead of $lookup.
+    // JHW: Ok to push regardless of collation?
     if (auto sortPtr = dynamic_cast<DocumentSourceSort*>(std::next(itr)->get())) {
         // TODO (SERVER-55417): Conditionally reorder $sort and $lookup depending on whether the
         // query planner allows for an index-provided sort.
@@ -500,6 +510,8 @@ Pipeline::SourceContainer::iterator DocumentSourceLookUp::doOptimizeAt(
         return std::next(itr);
     }
 
+    // JHW: I think we need to bail as well if local and foreign collation doesn't match. Ask
+    // reviewers whether type should be a factor? Maybe safer not to restrict to strings?
     if (!_unwindSrc || _unwindSrc->indexPath() || _unwindSrc->preserveNullAndEmptyArrays()) {
         // We must be unwinding our result to internalize a $match. For example, consider the
         // following pipeline:
@@ -836,6 +848,12 @@ void DocumentSourceLookUp::serializeToArrayWithBothSyntaxes(
         output[getSourceName()]["pipeline"] = Value(pipeline);
     }
 
+    // TODO: Serialization unit tests
+    if (_fromExpCtx->getCollator()) {
+        output[getSourceName()]["collation"] =
+            Value(_fromExpCtx->getCollator()->getSpec().toBSON());
+    }
+
     if (explain) {
         if (_unwindSrc) {
             const boost::optional<FieldPath> indexPath = _unwindSrc->indexPath();
@@ -887,17 +905,21 @@ void DocumentSourceLookUp::serializeToArray(
             pipeline.emplace_back(BSON("$match" << *_additionalFilter));
         }
 
-        doc = Document{{getSourceName(),
-                        Document{{"from", fromValue},
-                                 {"as", _as.fullPath()},
-                                 {"let", exprList.freeze()},
-                                 {"pipeline", pipeline}}}};
+        doc = Document{
+            {getSourceName(),
+             Document{{"from", fromValue},
+                      {"as", _as.fullPath()},
+                      {"let", exprList.freeze()},
+                      {"pipeline", pipeline},
+                      {"collation", Value(_fromExpCtx->getCollator()->getSpec().toBSON())}}}};
     } else {
-        doc = Document{{getSourceName(),
-                        Document{{"from", fromValue},
-                                 {"as", _as.fullPath()},
-                                 {"localField", _localField->fullPath()},
-                                 {"foreignField", _foreignField->fullPath()}}}};
+        doc = Document{
+            {getSourceName(),
+             Document{{"from", fromValue},
+                      {"as", _as.fullPath()},
+                      {"localField", _localField->fullPath()},
+                      {"foreignField", _foreignField->fullPath()},
+                      {"collation", Value(_fromExpCtx->getCollator()->getSpec().toBSON())}}}};
     }
 
     MutableDocument output(std::move(doc));
@@ -1023,17 +1045,18 @@ intrusive_ptr<DocumentSource> DocumentSourceLookUp::createFromBson(
     std::vector<BSONObj> pipeline;
     bool hasPipeline = false;
     bool hasLet = false;
+    boost::optional<std::unique_ptr<CollatorInterface>> fromCollator;
 
     for (auto&& argument : elem.Obj()) {
         const auto argName = argument.fieldNameStringData();
 
-        if (argName == "pipeline") {
+        if (argName == "pipeline"_sd) {
             pipeline = parsePipelineFromBSON(argument);
             hasPipeline = true;
             continue;
         }
 
-        if (argName == "let") {
+        if (argName == "let"_sd) {
             uassert(ErrorCodes::FailedToParse,
                     str::stream() << "$lookup argument '" << argument
                                   << "' must be an object, is type " << argument.type(),
@@ -1043,8 +1066,18 @@ intrusive_ptr<DocumentSource> DocumentSourceLookUp::createFromBson(
             continue;
         }
 
-        if (argName == "from") {
+        if (argName == "from"_sd) {
             fromNs = parseLookupFromAndResolveNamespace(argument, pExpCtx->ns.db());
+            continue;
+        }
+
+        if (argName == "collation"_sd) {
+            const auto& collationSpec = argument.Obj();
+            if (!collationSpec.isEmpty()) {
+                fromCollator.emplace(uassertStatusOK(
+                    CollatorFactoryInterface::get(pExpCtx->opCtx->getServiceContext())
+                        ->makeFromBSON(collationSpec)));
+            }
             continue;
         }
 
@@ -1053,11 +1086,11 @@ intrusive_ptr<DocumentSource> DocumentSourceLookUp::createFromBson(
                               << argument << ": " << argument.type(),
                 argument.type() == BSONType::String);
 
-        if (argName == "as") {
+        if (argName == "as"_sd) {
             as = argument.String();
-        } else if (argName == "localField") {
+        } else if (argName == "localField"_sd) {
             localField = argument.String();
-        } else if (argName == "foreignField") {
+        } else if (argName == "foreignField"_sd) {
             foreignField = argument.String();
         } else {
             uasserted(ErrorCodes::FailedToParse,
@@ -1082,6 +1115,7 @@ intrusive_ptr<DocumentSource> DocumentSourceLookUp::createFromBson(
                                             std::move(as),
                                             std::move(pipeline),
                                             std::move(letVariables),
+                                            std::move(fromCollator),
                                             boost::none,
                                             pExpCtx);
         } else {
@@ -1096,6 +1130,7 @@ intrusive_ptr<DocumentSource> DocumentSourceLookUp::createFromBson(
                 std::move(as),
                 std::move(pipeline),
                 std::move(letVariables),
+                std::move(fromCollator),
                 std::pair(std::move(localField), std::move(foreignField)),
                 pExpCtx);
         }
@@ -1113,6 +1148,7 @@ intrusive_ptr<DocumentSource> DocumentSourceLookUp::createFromBson(
                                         std::move(as),
                                         std::move(localField),
                                         std::move(foreignField),
+                                        std::move(fromCollator),
                                         pExpCtx);
     }
 }

@@ -220,6 +220,7 @@ private:
      */
     DocumentSourceLookUp(NamespaceString fromNs,
                          std::string as,
+                         boost::optional<std::unique_ptr<CollatorInterface>> fromCollator,
                          const boost::intrusive_ptr<ExpressionContext>& expCtx);
 
     /**
@@ -230,6 +231,7 @@ private:
                          std::string as,
                          std::string localField,
                          std::string foreignField,
+                         boost::optional<std::unique_ptr<CollatorInterface>> fromCollator,
                          const boost::intrusive_ptr<ExpressionContext>& expCtx);
 
     /**
@@ -241,6 +243,7 @@ private:
                          std::string as,
                          std::vector<BSONObj> pipeline,
                          BSONObj letVariables,
+                         boost::optional<std::unique_ptr<CollatorInterface>> fromCollator,
                          boost::optional<std::pair<std::string, std::string>> localForeignFields,
                          const boost::intrusive_ptr<ExpressionContext>& expCtx);
 
