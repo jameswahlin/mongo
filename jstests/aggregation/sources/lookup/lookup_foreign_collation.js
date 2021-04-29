@@ -375,5 +375,40 @@ function setup() {
 
 (function testPipelineOptimizations() {
     setup();
+
+    let pipeline = [{$lookup: {from: foreignColl.getName(), 
+        as: "foreignMatch",
+        let: {l_id: "$_id"}, 
+        pipeline: [{$match: {$expr: {$eq: ["$_id", "$$l_id"]}}}],
+        collation: caseInsensitiveCollation}},
+        {$unwind: "$foreignMatch"},
+        {$match: {"foreignMatch._id": "b"}}];
+
+    let results = localColl.aggregate(pipeline).toArray();
+    assert.eq(0, results.length);
+
+    let explain = localColl.explain().aggregate(pipeline);
+    let lastStage = explain.stages[explain.stages.length - 1];
+    assert(lastStage.hasOwnProperty("$match"), tojson(explain));
+    assert.eq({$match: {"foreignMatch._id": {$eq: "b"}}},
+              lastStage,
+              "The $match stage should not be optimized into the $lookup stage" + tojson(explain));
+
+    pipeline = [{$lookup: {from: foreignColl.getName(), 
+        as: "foreignMatch",
+        let: {l_id: "$_id"}, 
+        pipeline: [{$match: {$expr: {$eq: ["$_id", "$$l_id"]}}}],
+        collation: caseInsensitiveCollation}},
+        {$unwind: "$foreignMatch"},
+        {$match: {"foreignMatch._id": "b"}}];
+
+    let expectedResults = [{"_id": "b", "foreignMatch": {"_id": "B"}}];
+
+    results = localColl.aggregate(pipeline, {collation: caseInsensitiveCollation}).toArray();
+    assert(anyEq(results, expectedResults), tojson(results));
+
+    explain = localColl.explain().aggregate(pipeline, {collation: caseInsensitiveCollation});
+    lastStage = explain.stages[explain.stages.length - 1];
+    assert(lastStage.hasOwnProperty("$lookup"), tojson(explain));
 })();
 })();

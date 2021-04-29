@@ -510,8 +510,6 @@ Pipeline::SourceContainer::iterator DocumentSourceLookUp::doOptimizeAt(
         return std::next(itr);
     }
 
-    // JHW: I think we need to bail as well if local and foreign collation doesn't match. Ask
-    // reviewers whether type should be a factor? Maybe safer not to restrict to strings?
     if (!_unwindSrc || _unwindSrc->indexPath() || _unwindSrc->preserveNullAndEmptyArrays()) {
         // We must be unwinding our result to internalize a $match. For example, consider the
         // following pipeline:
@@ -540,6 +538,13 @@ Pipeline::SourceContainer::iterator DocumentSourceLookUp::doOptimizeAt(
         // In addition, we must avoid internalizing a $match if an absorbed $unwind has an
         // "includeArrayIndex" option, since the $match will alter the indices of the returned
         // values.
+        return std::next(itr);
+    }
+
+    // We cannot internalize a $match if a collation has been set on the $lookup stage and it
+    // differs from that of the parent pipeline.
+    if (_fromExpCtx->getCollator() &&
+        !CollatorInterface::collatorsMatch(pExpCtx->getCollator(), _fromExpCtx->getCollator())) {
         return std::next(itr);
     }
 
